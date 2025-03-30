@@ -1,12 +1,13 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+use core::num;
 use std::fmt::{Binary, Display, Formatter, Result};
 use std::sync::Arc;
 use std::time::Instant;
 use std::{marker::PhantomData, ops::Add};
 
 use rayon::{prelude::*, result};
-use fixed::traits::FixedUnsigned;
+use fixed::traits::{Fixed, FixedUnsigned};
 use fixed::types::U10F6;
 use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
 use tfhe::FheBool;
@@ -41,12 +42,56 @@ pub(crate) struct InnerFheFixedU {
     frac: u32
 }
 
-pub trait FixedCiphertext: Clone {
+pub trait FixedCiphertext: Clone + Sync{
     const IS_SIGNED: bool;
-    fn inner(&self) -> Cipher;
+    fn inner(&self) -> &Cipher;
+    fn inner_mut(&mut self) -> &mut Cipher;
+    fn into_inner(self) -> Cipher;
     fn size(&self) -> u32;
     fn frac(&self) -> u32;
     fn new(inner: Cipher, size: u32, frac: u32) -> Self;
+    fn block_size(&self) -> u32;
+}
+
+impl FixedCiphertext for InnerFheFixedU {
+    const IS_SIGNED: bool = false;
+
+    fn inner(&self) -> &Cipher {
+        &self.inner
+    }
+
+    fn into_inner(self) -> Cipher {
+        self.inner
+    }
+    
+    fn inner_mut(&mut self) -> &mut Cipher {
+        &mut self.inner
+    }
+
+    fn size(&self) -> u32 {
+        self.size
+    }
+
+    fn frac(&self) -> u32 {
+        self.frac
+    }
+
+    fn new(inner: Cipher, size: u32, frac: u32) -> Self {
+        assert!(size > 0);
+        assert!(size >= frac);
+        Self { inner, size, frac }
+    }
+
+    fn block_size(&self) -> u32 {
+        assert!(self.size > 0);
+        let modulus = self.inner.blocks()[0].message_modulus.0;
+        let log2 = modulus.ilog2();
+        if 2u64.pow(log2) == modulus {
+            log2
+        } else {
+            log2 + 1
+        }
+    }
 }
 
 pub struct FixedServerKey {
@@ -60,13 +105,171 @@ impl FixedServerKey {
         }
     }
 
-    pub fn smart_add<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
+    pub(crate) fn smart_add<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
+        assert!(lhs.size() >= lhs.frac());
         assert_eq!(lhs.size(), rhs.size());
         assert_eq!(lhs.frac(), rhs.frac());
+
+        if self.key.is_add_possible(lhs.inner(), rhs.inner()).is_err() {
+            propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
+        }
+
         let mut result_value = lhs.inner().clone();
-        self.key.smart_add_assign(&mut result_value, &mut rhs.inner());
+        self.key.smart_add_assign(&mut result_value, rhs.inner_mut());
         T::new(result_value, lhs.size(), lhs.frac())
-    } 
+    }
+
+    pub(crate) fn smart_sub<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
+        assert!(lhs.size() >= lhs.frac());
+        assert_eq!(lhs.size(), rhs.size());
+        assert_eq!(lhs.frac(), rhs.frac());
+
+        if self.key.is_sub_possible(lhs.inner(), rhs.inner()).is_err() {
+            propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
+        }
+
+        let mut result_value = lhs.inner().clone();
+        self.key.smart_sub_assign(&mut result_value, rhs.inner_mut());
+        T::new(result_value, lhs.size(), lhs.frac())
+    }
+
+    pub(crate) fn smart_mul<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
+        assert!(lhs.size() >= lhs.frac());
+        assert_eq!(lhs.size(), rhs.size());
+        assert_eq!(lhs.frac(), rhs.frac());
+
+        propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
+
+        let blocks_with_frac = (lhs.frac() + 1) >> 1;
+
+        let mut lhs_inner = lhs.inner().clone();
+        let mut rhs_inner = rhs.inner().clone();
+
+        self.key.extend_radix_with_trivial_zero_blocks_msb_assign
+        (&mut lhs_inner, blocks_with_frac as usize);
+        self.key.extend_radix_with_trivial_zero_blocks_msb_assign
+        (&mut rhs_inner, blocks_with_frac as usize);
+
+        self.key.unchecked_mul_assign_parallelized(&mut lhs_inner, &rhs_inner);
+
+        if lhs.frac() % 2 != 0 {
+            self.key.scalar_left_shift_assign_parallelized(&mut lhs_inner, 1);
+        }
+
+        let mut blocks = lhs_inner.into_blocks();
+        blocks.drain(0..blocks_with_frac as usize);
+
+        T::new(Cipher::from_blocks(blocks), lhs.size(), lhs.frac())
+    }
+
+    pub(crate) fn smart_sqr<T: FixedCiphertext>(&self, c: &mut T) -> T {
+        
+        if !c.inner().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.inner_mut());
+        }
+        
+        let blocks_with_frac = (c.frac() + 1) >> 1;
+
+        let mut inner = c.inner().clone();
+        
+        self.key.extend_radix_with_trivial_zero_blocks_msb_assign
+        (&mut inner, blocks_with_frac as usize);
+
+        smart_sqr_assign(&mut inner, &self.key);
+
+        if c.frac() % 2 != 0 {
+            self.key.scalar_left_shift_assign_parallelized(&mut inner, 1);
+        }
+
+        let mut blocks = inner.into_blocks();
+        blocks.drain(0..blocks_with_frac as usize);
+
+        T::new(Cipher::from_blocks(blocks), c.size(), c.frac())
+    }
+    
+    // TODO rewrite to work with any block length (currently works for 2)
+    pub(crate) fn smart_sqrt_goldschmidt<T: FixedCiphertext>(&self, c: &mut T, iters: u32) -> T {
+        if !c.inner().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.inner_mut());
+        }
+        let num_blocks: usize = (c.size()/2) as usize;
+        let frac_bits = c.frac();
+        let int_bits = c.size() - frac_bits;
+        // Because we need to scale with 4^n, not 2^n it get's messy when frac is odd
+        let blocks_to_add: usize = (int_bits % 2 + 1) as usize;
+        let new_size=  c.size() + 2 * (blocks_to_add as u32);
+        let new_frac = c.size() + (c.frac() % 2);
+        
+        // We divide everything by 4^scale_factor,
+        // in the end the result is multiplied with 2^scale_factor
+        // TODO when the input is relatively small, this converges slowly,
+        // we should base the scaling factor on ilog
+        let scale_factor = (new_frac - c.frac()) / 2;
+        /*println!("size: {}", c.size());
+        println!("frac: {}", c.frac());
+        println!("int_bits: {}", int_bits);
+        println!("blocks_to_add: {}", blocks_to_add);
+        println!("new_size: {}", new_size);
+        println!("new_frac: {}", new_frac);
+        println!("scale_factor: {}", scale_factor);*/
+        let mut inner = c.inner().clone();
+
+        if T::IS_SIGNED {
+            let mut _signed_inner = self.key
+            .cast_to_signed(inner, num_blocks + 1);
+            todo!()
+        }
+        else {
+            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut inner, blocks_to_add);
+            
+            let mut x_k = T::new(inner.clone(), new_size, new_frac);
+            let mut r_k = T::new(inner.clone(), new_size, new_frac);
+
+            let mut three_inner: Cipher = self.key
+                .create_trivial_radix(3*blocks_to_add as u32, blocks_to_add);
+            self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
+                (&mut three_inner, num_blocks);
+            let mut three: T = T::new(three_inner, new_size, new_frac);
+            
+            for _ in 0..iters {
+                // We know that three always has empty carries, it doesn't need to be propagated
+                if self.key.is_sub_possible(three.inner(), x_k.inner()).is_err() {
+                    self.key.full_propagate_parallelized(x_k.inner_mut());
+                }
+                let mut m_k = self.smart_sub(&mut three, &mut x_k);
+                
+                self.key.scalar_right_shift_assign_parallelized(m_k.inner_mut(), 1);
+                
+                let mut m_k_sqr = self.smart_mul(&mut m_k.clone(), &mut m_k.clone());
+                
+                x_k = self.smart_mul(&mut x_k, &mut m_k_sqr);
+                r_k = self.smart_mul(&mut r_k, &mut m_k);
+            }
+            // Now 2^n * r_k = sqrt(c), where n = ceil((Size-Frac) / 2)
+
+            let mut result_inner = r_k.clone().into_inner();
+            
+            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, scale_factor);
+            let mut result_blocks = result_inner.into_blocks();
+            let len = result_blocks.len();
+            result_blocks.drain(len-blocks_to_add..len);
+            T::new(Cipher::from_blocks(result_blocks), c.size(), c.frac())
+        }
+
+        /*let mut x_k = x_scaled;
+        let mut r_k = x_scaled;
+        
+        let three = F::from_num(3);
+        for _ in 0..iters {
+            let m_k = three.wrapping_sub(x_k).shr(1);
+            
+            
+            let m_k_sqr = m_k.wrapping_mul(m_k);
+            x_k = x_k.wrapping_mul(m_k_sqr);
+            
+            r_k = r_k.wrapping_mul(m_k);
+        } */
+    }
 }
 
 pub struct FixedClientKey {
@@ -94,6 +297,7 @@ pub trait FheFixed<AF, CKey, SKey>
     // Unary operations
     fn smart_ilog2(&mut self, key: &SKey) -> SignedRadixCiphertext;
     fn smart_sqrt(&mut self, key: &SKey) -> Self;
+    fn smart_sqrt_goldschmidt(&mut self, iters: u32, key: &SKey) -> Self;
     fn smart_sqrt_guess_block(&mut self, key: &SKey) -> Self;
     fn smart_neg(&self, key: &SKey) -> Self;
     fn smart_abs(&self, key: &SKey) -> Self;
@@ -243,6 +447,17 @@ Frac: Unsigned,
         todo!()
     }
 
+    
+    fn smart_sqrt_goldschmidt(&mut self, iters: u32, key: &FixedServerKey) -> Self {
+        let result_inner = key
+            .smart_sqrt_goldschmidt(
+                &mut <InnerFheFixedU as FixedCiphertext>::new(
+                    self.inner.clone(), Size::U32, Frac::U32),
+                    iters)
+            .into_inner();
+        Self::from_bits(result_inner, key)
+    }
+
     fn smart_neg(&self, key: &FixedServerKey) -> Self {
         let _ = key;
         panic!("Cannot negate an unsigned number!")
@@ -368,6 +583,20 @@ Frac: Unsigned,
 
 pub type FheFixedU6F10 = FheFixedU<U16, U10>;
 pub type FheFixedUF6 = FheFixedU<U6, U16>;
+
+/// Given two ciphertexts, propagates them in parallel, if their block carries are not empty
+pub(crate) fn propagate_if_needed_parallelized<T: IntegerRadixCiphertext>(lhs: &mut T, rhs: &mut T, key: &ServerKey) {
+    rayon::join(
+        || if !lhs.block_carries_are_empty() {
+            key.full_propagate_parallelized(lhs);
+        
+        },
+        || if !rhs.block_carries_are_empty() {
+            key.full_propagate_parallelized(rhs);
+        },
+    );
+}
+
 
 /// ### NOTE
 /// Currently the carry and the overflow from the msb block may or may not be lost. This may or may not change!

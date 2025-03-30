@@ -1,11 +1,12 @@
 #![allow(unused_imports)]
 
 use std::io;
+use std::time::Instant;
 
 use fixed::traits::FixedUnsigned;
-use fixed::types::U10F6;
+use fixed::types::{U10F6, U12F4};
 use fixed::FixedU128;
-use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U16, U2, U3, U4, U6, U8};
+use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U16, U2, U3, U32, U4, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
 use tfhe::integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext};
 use tfhe::integer::{ServerKey, ClientKey};
@@ -34,7 +35,7 @@ fn main() {
         .read_line(&mut input)
         .expect("Failed to read line");
 
-    let clear_a: f32 = input.trim().parse().expect("Please type a number!");
+    let clear_a: f64 = input.trim().parse().expect("Please type a number!");
     input.clear();
     println!("Please input the iteration count:");
     io::stdin()
@@ -42,11 +43,9 @@ fn main() {
         .expect("Failed to read line");
 
     let iters: u32 = input.trim().parse().expect("Please type a number!");
-    println!("{:017.4b}", sqrt_goldschmidt(FixedU128::<U16>::from_num(clear_a), iters));
-    println!("a: {:14}", sqrt_goldschmidt(FixedU128::<U16>::from_num(clear_a), iters));
-    println!("Builtin result:");
+    /*println!("Builtin result:");
     println!("{:017.4b}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());
-    println!("a: {:14}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());
+    println!("a: {:14}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());*/
     // input.clear();
     // println!("Please input b:");
     // io::stdin()
@@ -55,53 +54,50 @@ fn main() {
 
     // let clear_b: f32 = input.trim().parse().expect("Please type a number!");
     
-    /*println!("Please wait!");
+    println!("Please wait!");
     let now = Instant::now();
 
-    let mut a:FheFixedU12F4 = FheFixedU12F4::encrypt(clear_a, &client_key);
-    let a2:FheFixedU12F4 = FheFixedU12F4::from_bits
-    (client_key.key.encrypt_radix
-        (U12F4::from_num(clear_a).to_bits(), 8), &server_key);
-    //let mut a = client_key.key.encrypt_radix(clear_a, 8);
+
+    /*let mut a = InnerFheFixedU::new(client_key.key
+        .encrypt_radix(U12F4::from_num(clear_a).to_bits(), 8), 16, 4);*/
+    let mut a = FheFixedU12F4::encrypt(clear_a, &client_key);
     // let mut b:FheFixedU16F0 = FheFixedU16F0::encrypt(clear_b, &client_key);
     let elapsed = now.elapsed();
     println!("Time for encrypting the inputs: {:.2?}", elapsed);
-    println!("{:017.4b}", a.decrypt(&client_key));
-    println!("a: {:14}", a.decrypt(&client_key));
-    println!("{:017.4b}", a2.decrypt(&client_key));
-    println!("a2: {:13}", a2.decrypt(&client_key));
+    /*println!("{:017.4b}", a.decrypt(&client_key));
+    println!("a: {:14}", a.decrypt(&client_key));*/
 
     let now2 = Instant::now();
     
-    let a_sqr = a.smart_sqr(&server_key);
+    //let a_sqr: InnerFheFixedU = server_key.smart_sqrt_goldschmidt(&mut a, iters, &client_key.key);
+    let a_sqr:FheFixedU12F4 = a.smart_sqrt_goldschmidt(iters,&server_key);
     //let a_round:FheFixedU12F4 = a.smart_round(&server_key);
 
     // let b_ceil:FheFixedU16F0 = b.smart_ceil(&server_key);
     // let b_round:FheFixedU16F0 = b.smart_round(&server_key);
     
     let elapsed2 = now2.elapsed();
-    println!("Time for computing own square: {:.2?}", elapsed2);
-    let now3 = Instant::now();
-    let mut a_clone = a.clone();
-    let a_mul = a.smart_mul( &mut a_clone, &server_key);
+    println!("Time for computing own sqrt: {:.2?}", elapsed2);
     //let a_round:FheFixedU12F4 = a.smart_round(&server_key);
 
     // let b_ceil:FheFixedU16F0 = b.smart_ceil(&server_key);
     // let b_round:FheFixedU16F0 = b.smart_round(&server_key);
     
-    let elapsed2 = now3.elapsed();
-    println!("Time for computing builtin : {:.2?}", elapsed2);
-
     println!("Please inspect the results:");
     
     
     println!("{:017.4b}", a.decrypt(&client_key));
     println!("a: {:14}", a.decrypt(&client_key));
     println!("{:017.4b}", a_sqr.decrypt(&client_key));
-    println!("sqr: {:12}", a_sqr.decrypt(&client_key));
-    println!("correct result:");
-    println!("{:017.4b}", a_mul.decrypt(&client_key));
-    println!("sqr: {:12}", a_mul.decrypt(&client_key));*/
+    println!("sqrt: {:12}", a_sqr.decrypt(&client_key));
+
+    println!("clear goldschmidt:");
+    println!("{:017.4b}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
+    println!("a: {:14}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
+
+    println!("clear fixed builtin:");
+    println!("{:017.4b}", U12F4::from_num(clear_a).wrapping_sqrt());
+    println!("a: {:14}", U12F4::from_num(clear_a).wrapping_sqrt());
     /*println!("{:017.4b}", a_round.decrypt(&client_key));
     println!("round: {:10}", a_round.decrypt(&client_key));*/
     // println!();
@@ -125,7 +121,7 @@ where
         let log4 = x.int_log(4)+1;
         (x.wrapping_div(pow(F::from_num(4), log4)), log4)
     };
-    println!("x_scaled: {}", x_scaled);
+    //println!("x_scaled: {}", x_scaled);
     let mut x_k = x_scaled;
     let mut r_k = x_scaled;
     
@@ -147,7 +143,6 @@ pub fn pow<F>(x: F, pow: i32) -> F
 where
     F: FixedUnsigned + Copy,
 {
-    // Handle negative exponents
     if pow < 0 {
         return F::from_num(1) / pow_positive(x, (-pow) as u32);
     }
@@ -155,12 +150,10 @@ where
     pow_positive(x, pow as u32)
 }
 
-// Helper function to handle positive exponents
 fn pow_positive<F>(x: F, pow: u32) -> F
 where
     F: FixedUnsigned + Copy,
 {
-    // Base cases
     if pow == 0 {
         return F::from_num(1);
     }
@@ -168,18 +161,15 @@ where
         return x;
     }
     
-    // Use binary exponentiation (square-and-multiply) for efficiency
     let mut result = F::from_num(1);
     let mut base = x;
     let mut exponent = pow;
     
     while exponent > 0 {
-        // If current exponent is odd, multiply result by the current base
         if exponent & 1 == 1 {
             result = result * base;
         }
         
-        // Square the base and halve the exponent
         base = base * base;
         exponent >>= 1;
     }
