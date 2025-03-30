@@ -1,0 +1,176 @@
+# Signed integer GPU tests on an RTXA6000 VM on hyperstack with classical PBS
+name: Cuda - Signed integer tests with classical PBS
+
+env:
+  CARGO_TERM_COLOR: always
+  ACTION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  RUSTFLAGS: "-C target-cpu=native"
+  RUST_BACKTRACE: "full"
+  RUST_MIN_STACK: "8388608"
+  SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+  SLACK_ICON: https://pbs.twimg.com/profile_images/1274014582265298945/OjBKP9kn_400x400.png
+  SLACK_USERNAME: ${{ secrets.BOT_USERNAME }}
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  SLACKIFY_MARKDOWN: true
+  IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+  PULL_REQUEST_MD_LINK: ""
+  CHECKOUT_TOKEN: ${{ secrets.REPO_CHECKOUT_TOKEN || secrets.GITHUB_TOKEN }}
+  # Secrets will be available only to zama-ai organization members
+  SECRETS_AVAILABLE: ${{ secrets.JOB_SECRET != '' }}
+  EXTERNAL_CONTRIBUTION_RUNNER: "gpu_ubuntu-22.04"
+
+on:
+  # Allows you to run this workflow manually from the Actions tab as an alternative.
+  workflow_dispatch:
+  pull_request:
+    types: [ labeled ]
+
+jobs:
+  should-run:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      gpu_test: ${{ env.IS_PULL_REQUEST == 'false' || steps.changed-files.outputs.gpu_any_changed }}
+    steps:
+      - name: Checkout tfhe-rs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: 'false'
+          token: ${{ env.CHECKOUT_TOKEN }}
+
+      - name: Check for file changes
+        id: changed-files
+        uses: tj-actions/changed-files@26a38635fc1173cc5820336ce97be6188d0de9f5 # v46.0.2
+        with:
+          files_yaml: |
+            gpu:
+              - tfhe/Cargo.toml
+              - tfhe/build.rs
+              - backends/tfhe-cuda-backend/**
+              - tfhe/src/core_crypto/gpu/**
+              - tfhe/src/integer/server_key/radix_parallel/tests_unsigned/**
+              - tfhe/src/integer/server_key/radix_parallel/tests_signed/**
+              - tfhe/src/integer/server_key/radix_parallel/tests_cases_unsigned.rs
+              - tfhe/src/integer/gpu/**
+              - tfhe/src/shortint/parameters/**
+              - tfhe/src/high_level_api/**
+              - tfhe/src/c_api/**
+              - 'tfhe/docs/**/**.md'
+              - '.github/workflows/gpu_signed_integer_classic_tests.yml'
+              - scripts/integer-tests.sh
+              - ci/slab.toml
+
+  setup-instance:
+    name: Setup instance (cuda-signed-classic-tests)
+    needs: should-run
+    if: github.event_name != 'pull_request' ||
+      (github.event.action != 'labeled' && needs.should-run.outputs.gpu_test == 'true') ||
+      (github.event.action == 'labeled' && github.event.label.name == 'approved' && needs.should-run.outputs.gpu_test == 'true')
+    runs-on: ubuntu-latest
+    outputs:
+      runner-name: ${{ steps.start-remote-instance.outputs.label || steps.start-github-instance.outputs.runner_group }}
+    steps:
+      - name: Start remote instance
+        id: start-remote-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: start
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          backend: hyperstack
+          profile: gpu-test
+
+      # This instance will be spawned especially for pull-request from forked repository
+      - name: Start GitHub instance
+        id: start-github-instance
+        if: env.SECRETS_AVAILABLE == 'false'
+        run: |
+          echo "runner_group=${{ env.EXTERNAL_CONTRIBUTION_RUNNER }}" >> "$GITHUB_OUTPUT"
+
+  cuda-tests-linux:
+    name: CUDA signed integer tests with classical PBS
+    needs: [ should-run, setup-instance ]
+    if: github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && needs.setup-instance.result != 'skipped')
+    concurrency:
+      group: ${{ github.workflow_ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    runs-on: ${{ needs.setup-instance.outputs.runner-name }}
+    strategy:
+      fail-fast: false
+      # explicit include-based build matrix, of known valid options
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            cuda: "12.2"
+            gcc: 11 
+    steps:
+      - name: Checkout tfhe-rs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: 'false'
+          token: ${{ env.CHECKOUT_TOKEN }}
+
+      - name: Setup Hyperstack dependencies
+        uses: ./.github/actions/gpu_setup
+        with:
+          cuda-version: ${{ matrix.cuda }}
+          gcc-version: ${{ matrix.gcc }}
+          github-instance: ${{ env.SECRETS_AVAILABLE == 'false' }}
+
+      - name: Install latest stable
+        uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
+        with:
+          toolchain: stable
+
+      - name: Run signed integer tests
+        run: |
+          BIG_TESTS_INSTANCE=TRUE make test_signed_integer_gpu_ci
+
+  slack-notify:
+    name: Slack Notification
+    needs: [ setup-instance, cuda-tests-linux ]
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.cuda-tests-linux.result != 'skipped' && failure() }}
+    continue-on-error: true
+    steps:
+      - name: Set pull-request URL
+        if: env.SECRETS_AVAILABLE == 'true' && github.event_name == 'pull_request'
+        run: |
+          echo "PULL_REQUEST_MD_LINK=[pull-request](${{ vars.PR_BASE_URL }}${{ github.event.pull_request.number }}), "  >> "${GITHUB_ENV}"
+
+      - name: Send message
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ needs.cuda-tests-linux.result }}
+          SLACK_MESSAGE: "Integer GPU signed integer tests with classical PBS finished with status: ${{ needs.cuda-tests-linux.result }}. (${{ env.PULL_REQUEST_MD_LINK }}[action run](${{ env.ACTION_RUN_URL }}))"
+
+  teardown-instance:
+    name: Teardown instance (cuda-signed-classic-tests)
+    if: ${{ always() && needs.setup-instance.result == 'success' }}
+    needs: [ setup-instance, cuda-tests-linux ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop remote instance
+        id: stop-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: stop
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          label: ${{ needs.setup-instance.outputs.runner-name }}
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "Instance teardown (cuda-signed-classic-tests) finished with status: ${{ job.status }}. (${{ env.ACTION_RUN_URL }})"

@@ -1,0 +1,156 @@
+name: AWS WASM Tests on CPU
+
+env:
+  CARGO_TERM_COLOR: always
+  ACTION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  RUSTFLAGS: "-C target-cpu=native"
+  RUST_BACKTRACE: "full"
+  RUST_MIN_STACK: "8388608"
+  SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+  SLACK_ICON: https://pbs.twimg.com/profile_images/1274014582265298945/OjBKP9kn_400x400.png
+  SLACK_USERNAME: ${{ secrets.BOT_USERNAME }}
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  SLACKIFY_MARKDOWN: true
+  PULL_REQUEST_MD_LINK: ""
+  CHECKOUT_TOKEN: ${{ secrets.REPO_CHECKOUT_TOKEN || secrets.GITHUB_TOKEN }}
+  # Secrets will be available only to zama-ai organization members
+  SECRETS_AVAILABLE: ${{ secrets.JOB_SECRET != '' }}
+  EXTERNAL_CONTRIBUTION_RUNNER: "large_ubuntu_16"
+
+on:
+  # Allows you to run this workflow manually from the Actions tab as an alternative.
+  workflow_dispatch:
+  pull_request:
+    types: [ labeled ]
+
+jobs:
+  setup-instance:
+    name: Setup instance (wasm-tests)
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.label.name, 'approved') }}
+    runs-on: ubuntu-latest
+    outputs:
+      runner-name: ${{ steps.start-remote-instance.outputs.label || steps.start-github-instance.outputs.runner_group }}
+    steps:
+      - name: Start remote instance
+        id: start-remote-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: start
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          backend: aws
+          profile: cpu-small
+
+      # This instance will be spawned especially for pull-request from forked repository
+      - name: Start GitHub instance
+        id: start-github-instance
+        if: env.SECRETS_AVAILABLE == 'false'
+        run: |
+          echo "runner_group=${{ env.EXTERNAL_CONTRIBUTION_RUNNER }}" >> "$GITHUB_OUTPUT"
+
+  wasm-tests:
+    name: WASM tests
+    needs: setup-instance
+    concurrency:
+      group: ${{ github.workflow_ref }}
+      cancel-in-progress: true
+    runs-on: ${{ needs.setup-instance.outputs.runner-name }}
+    steps:
+      - name: Checkout tfhe-rs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: 'false'
+          token: ${{ env.CHECKOUT_TOKEN }}
+
+      - name: Install latest stable
+        uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
+        with:
+          toolchain: stable
+
+      - name: Get Node version
+        run: |
+          echo "NODE_VERSION=$(make node_version)" >> "${GITHUB_ENV}"
+
+      - name: Node cache restoration
+        id: node-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 #v4.2.3
+        with:
+          path: |
+            ~/.nvm
+            ~/.npm
+          key: node-${{ env.NODE_VERSION }}
+
+      - name: Install Node
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: |
+          make install_node
+
+      - name: Node cache save
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 #v4.2.3
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.nvm
+            ~/.npm
+          key: node-${{ env.NODE_VERSION }}
+
+      - name: Install web resources
+        run: |
+          make install_chrome_browser
+          make install_chrome_web_driver
+
+      - name: Run fmt checks
+        run: |
+          make check_fmt_js
+
+      - name: Run js on wasm API tests
+        run: |
+          make test_nodejs_wasm_api_ci
+
+      - name: Run parallel wasm tests
+        run: |
+          make test_web_js_api_parallel_chrome_ci
+
+      - name: Run x86_64/wasm zk compatibility tests
+        run: |
+          make test_zk_wasm_x86_compat_ci
+
+      - name: Set pull-request URL
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          echo "PULL_REQUEST_MD_LINK=[pull-request](${{ vars.PR_BASE_URL }}${{ github.event.pull_request.number }}), "  >> "${GITHUB_ENV}"
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "WASM tests finished with status: ${{ job.status }}. (${{ env.PULL_REQUEST_MD_LINK }}[action run](${{ env.ACTION_RUN_URL }}))"
+
+  teardown-instance:
+    name: Teardown instance (wasm-tests)
+    if: ${{ always() && needs.setup-instance.result == 'success' }}
+    needs: [ setup-instance, wasm-tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop remote instance
+        id: stop-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: stop
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          label: ${{ needs.setup-instance.outputs.runner-name }}
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "Instance teardown (wasm-tests) finished with status: ${{ job.status }}. (${{ env.ACTION_RUN_URL }})"

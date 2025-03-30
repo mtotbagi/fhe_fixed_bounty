@@ -1,0 +1,157 @@
+# Run backward compatibility tests
+name: Backward compatibility Tests on CPU
+
+env:
+  CARGO_TERM_COLOR: always
+  ACTION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  RUSTFLAGS: "-C target-cpu=native"
+  RUST_BACKTRACE: "full"
+  RUST_MIN_STACK: "8388608"
+  SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+  SLACK_ICON: https://pbs.twimg.com/profile_images/1274014582265298945/OjBKP9kn_400x400.png
+  SLACK_USERNAME: ${{ secrets.BOT_USERNAME }}
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  SLACKIFY_MARKDOWN: true
+  PULL_REQUEST_MD_LINK: ""
+  CHECKOUT_TOKEN: ${{ secrets.REPO_CHECKOUT_TOKEN || secrets.GITHUB_TOKEN }}
+  # Secrets will be available only to zama-ai organization members
+  SECRETS_AVAILABLE: ${{ secrets.JOB_SECRET != '' }}
+  EXTERNAL_CONTRIBUTION_RUNNER: "large_ubuntu_16"
+
+on:
+  # Allows you to run this workflow manually from the Actions tab as an alternative.
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  setup-instance:
+    name: Setup instance (backward-compat-tests)
+    runs-on: ubuntu-latest
+    outputs:
+      runner-name: ${{ steps.start-remote-instance.outputs.label || steps.start-github-instance.outputs.runner_group }}
+    steps:
+      - name: Start remote instance
+        id: start-remote-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: start
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          backend: aws
+          profile: cpu-small
+
+      # This instance will be spawned especially for pull-request from forked repository
+      - name: Start GitHub instance
+        id: start-github-instance
+        if: env.SECRETS_AVAILABLE == 'false'
+        run: |
+          echo "runner_group=${{ env.EXTERNAL_CONTRIBUTION_RUNNER }}" >> "$GITHUB_OUTPUT"
+
+  backward-compat-tests:
+    name: Backward compatibility tests
+    needs: [ setup-instance ]
+    concurrency:
+      group: ${{ github.workflow_ref }}
+      cancel-in-progress: true
+    runs-on: ${{ needs.setup-instance.outputs.runner-name }}
+    steps:
+      - name: Checkout tfhe-rs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: 'false'
+          token: ${{ env.CHECKOUT_TOKEN }}
+
+      - name: Install latest stable
+        uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
+        with:
+          toolchain: stable
+
+      - name: Use specific data branch
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'data_PR') }}
+        env:
+          PR_BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "BACKWARD_COMPAT_DATA_BRANCH=${PR_BRANCH}" >> "${GITHUB_ENV}"
+
+      - name: Get backward compat branch
+        id: backward_compat_branch
+        run: |
+          BRANCH="$(make backward_compat_branch)"
+          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Get backward compat branch head SHA
+        id: backward_compat_sha
+        env:
+          REPO_URL: "https://github.com/zama-ai/tfhe-backward-compat-data"
+        run: |
+          SHA=$(git ls-remote ${{ env.REPO_URL }} refs/heads/${{ steps.backward_compat_branch.outputs.branch }} | awk '{print $1}')
+          echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Retrieve data from cache
+        id: retrieve-data-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 #v4.2.3
+        with:
+          path: tests/tfhe-backward-compat-data
+          key: ${{ steps.backward_compat_branch.outputs.branch }}_${{ steps.backward_compat_sha.outputs.sha }}
+
+      - name: Clone test data
+        if: steps.retrieve-data-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: 'false'
+          repository: zama-ai/tfhe-backward-compat-data
+          path: tests/tfhe-backward-compat-data
+          lfs: 'true'
+          ref: ${{ steps.backward_compat_branch.outputs.branch }}
+
+      - name: Run backward compatibility tests
+        run: |
+          make test_backward_compatibility_ci
+
+      - name: Store data in cache
+        if: steps.retrieve-data-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 #v4.2.3
+        with:
+          path: tests/tfhe-backward-compat-data
+          key: ${{ steps.backward_compat_branch.outputs.branch }}_${{ steps.backward_compat_sha.outputs.sha }}
+
+      - name: Set pull-request URL
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          echo "PULL_REQUEST_MD_LINK=[pull-request](${{ vars.PR_BASE_URL }}${{ github.event.pull_request.number }}), "  >> "${GITHUB_ENV}"
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "Backward compatibility tests finished with status: ${{ job.status }}. (${{ env.PULL_REQUEST_MD_LINK }}[action run](${{ env.ACTION_RUN_URL }}))"
+
+  teardown-instance:
+    name: Teardown instance (backward-compat-tests)
+    if: ${{ always() && needs.setup-instance.result == 'success' }}
+    needs: [ setup-instance, backward-compat-tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop remote instance
+        id: stop-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: stop
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          label: ${{ needs.setup-instance.outputs.runner-name }}
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "Instance teardown (backward-compat-tests) finished with status: ${{ job.status }}. (${{ env.ACTION_RUN_URL }})"

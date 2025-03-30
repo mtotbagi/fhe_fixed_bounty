@@ -1,0 +1,287 @@
+name: AWS Tests on CPU
+
+env:
+  CARGO_TERM_COLOR: always
+  ACTION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  RUSTFLAGS: "-C target-cpu=native"
+  RUST_BACKTRACE: "full"
+  RUST_MIN_STACK: "8388608"
+  SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+  SLACK_ICON: https://pbs.twimg.com/profile_images/1274014582265298945/OjBKP9kn_400x400.png
+  SLACK_USERNAME: ${{ secrets.BOT_USERNAME }}
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  SLACKIFY_MARKDOWN: true
+  IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+  PULL_REQUEST_MD_LINK: ""
+  CHECKOUT_TOKEN: ${{ secrets.REPO_CHECKOUT_TOKEN || secrets.GITHUB_TOKEN }}
+  # Secrets will be available only to zama-ai organization members
+  SECRETS_AVAILABLE: ${{ secrets.JOB_SECRET != '' }}
+  EXTERNAL_CONTRIBUTION_RUNNER: "large_ubuntu_64-22.04"
+
+on:
+  # Allows you to run this workflow manually from the Actions tab as an alternative.
+  workflow_dispatch:
+  pull_request:
+    types: [ labeled ]
+  schedule:
+    # Nightly tests @ 1AM after each work day
+    - cron: "0 1 * * MON-FRI"
+
+jobs:
+  should-run:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' ||
+      (github.event_name == 'schedule' && github.repository == 'zama-ai/tfhe-rs')
+    permissions:
+      pull-requests: read
+    outputs:
+      csprng_test: ${{ env.IS_PULL_REQUEST == 'false' || steps.changed-files.outputs.csprng_any_changed }}
+      zk_pok_test: ${{ env.IS_PULL_REQUEST == 'false' || steps.changed-files.outputs.zk_pok_any_changed }}
+      core_crypto_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.core_crypto_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      boolean_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.boolean_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      shortint_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.shortint_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      strings_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.strings_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      high_level_api_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.high_level_api_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      c_api_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.c_api_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      examples_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.examples_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      apps_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.apps_any_changed || steps.changed-files.outputs.dependencies_any_changed }}
+      user_docs_test: ${{ env.IS_PULL_REQUEST == 'false' ||
+        steps.changed-files.outputs.user_docs_any_changed ||
+        steps.changed-files.outputs.dependencies_any_changed }}
+      any_file_changed: ${{ env.IS_PULL_REQUEST == 'false' || steps.aggregated-changes.outputs.any_changed }}
+    steps:
+      - name: Checkout tfhe-rs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: 'false'
+          token: ${{ env.CHECKOUT_TOKEN }}
+
+      - name: Check for file changes
+        id: changed-files
+        uses: tj-actions/changed-files@26a38635fc1173cc5820336ce97be6188d0de9f5 # v46.0.2
+        with:
+          files_yaml: |
+            dependencies:
+              - tfhe/Cargo.toml
+              - tfhe-csprng/**
+              - tfhe-fft/**
+              - tfhe-zk-pok/**
+            csprng:
+              - tfhe-csprng/**
+            zk_pok:
+              - tfhe-zk-pok/**
+            core_crypto:
+              - tfhe/src/core_crypto/**
+            boolean:
+              - tfhe/src/core_crypto/**
+              - tfhe/src/boolean/**
+            shortint:
+              - tfhe/src/core_crypto/**
+              - tfhe/src/shortint/**
+            strings:
+              - tfhe/src/core_crypto/**
+              - tfhe/src/shortint/**
+              - tfhe/src/integer/**
+              - tfhe/src/strings/**
+            high_level_api:
+              - tfhe/src/**
+              - '!tfhe/src/c_api/**'
+              - '!tfhe/src/boolean/**'
+              - '!tfhe/src/js_on_wasm_api/**'
+            c_api:
+              - tfhe/src/**
+            examples:
+              - tfhe/src/**
+              - '!tfhe/src/c_api/**'
+              - tfhe/examples/**
+            apps:
+              - tfhe/src/**
+              - '!tfhe/src/c_api/**'
+              - apps/trivium/src/**
+            user_docs:
+              - tfhe/src/**
+              - '!tfhe/src/c_api/**'
+              - 'tfhe/docs/**/**.md'
+              - README.md
+
+      - name: Aggregate file changes
+        id: aggregated-changes
+        if: ( steps.changed-files.outputs.dependencies_any_changed == 'true' ||
+          steps.changed-files.outputs.csprng_any_changed == 'true' ||
+          steps.changed-files.outputs.zk_pok_any_changed == 'true' ||
+          steps.changed-files.outputs.core_crypto_any_changed == 'true' ||
+          steps.changed-files.outputs.boolean_any_changed == 'true' ||
+          steps.changed-files.outputs.shortint_any_changed == 'true' ||
+          steps.changed-files.outputs.strings_any_changed == 'true' ||
+          steps.changed-files.outputs.high_level_api_any_changed == 'true' ||
+          steps.changed-files.outputs.c_api_any_changed == 'true' ||
+          steps.changed-files.outputs.examples_any_changed == 'true' ||
+          steps.changed-files.outputs.apps_any_changed == 'true' ||
+          steps.changed-files.outputs.user_docs_any_changed == 'true')
+        run: |
+          echo "any_changed=true" >> "$GITHUB_OUTPUT"
+
+  setup-instance:
+    name: Setup instance (cpu-tests)
+    if: github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'approved' && needs.should-run.outputs.any_file_changed == 'true')
+    needs: should-run
+    runs-on: ubuntu-latest
+    outputs:
+      runner-name: ${{ steps.start-remote-instance.outputs.label || steps.start-github-instance.outputs.runner_group }}
+    steps:
+      - name: Start remote instance
+        id: start-remote-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: start
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          backend: aws
+          profile: cpu-big
+
+      # This instance will be spawned especially for pull-request from forked repository
+      - name: Start GitHub instance
+        id: start-github-instance
+        if: env.SECRETS_AVAILABLE == 'false'
+        run: |
+          echo "runner_group=${{ env.EXTERNAL_CONTRIBUTION_RUNNER }}" >> "$GITHUB_OUTPUT"
+
+  cpu-tests:
+    name: CPU tests
+    if: github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && needs.setup-instance.result != 'skipped')
+    needs: [ should-run, setup-instance ]
+    concurrency:
+      group: ${{ github.workflow_ref }}_${{github.event_name}}
+      cancel-in-progress: true
+    runs-on: ${{ needs.setup-instance.outputs.runner-name }}
+    steps:
+      - name: Checkout tfhe-rs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: 'false'
+          token: ${{ env.CHECKOUT_TOKEN }}
+
+      - name: Install latest stable
+        uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
+        with:
+          toolchain: stable
+
+      - name: Run tfhe-csprng tests
+        if: needs.should-run.outputs.csprng_test == 'true'
+        run: |
+          make test_tfhe_csprng
+
+      - name: Run tfhe-zk-pok tests
+        if: needs.should-run.outputs.zk_pok_test == 'true'
+        run: |
+          make test_zk_pok
+
+      - name: Run core tests
+        if: needs.should-run.outputs.core_crypto_test == 'true'
+        run: |
+          AVX512_SUPPORT=ON make test_core_crypto
+
+      - name: Run boolean tests
+        if: needs.should-run.outputs.boolean_test == 'true'
+        run: |
+          make test_boolean
+
+      - name: Run C API tests
+        if: needs.should-run.outputs.c_api_test == 'true'
+        run: |
+          make test_c_api
+
+      - name: Run user docs tests
+        if: needs.should-run.outputs.user_docs_test == 'true'
+        run: |
+          make test_user_doc
+
+      - name: Gen Keys if required
+        if: needs.should-run.outputs.shortint_test == 'true'
+        run: |
+          make gen_key_cache
+
+      - name: Run shortint tests
+        if: needs.should-run.outputs.shortint_test == 'true'
+        run: |
+          BIG_TESTS_INSTANCE=TRUE make test_shortint_ci
+
+      - name: Run strings tests
+        if: needs.should-run.outputs.strings_test == 'true'
+        run: |
+          BIG_TESTS_INSTANCE=TRUE make test_strings
+
+      - name: Run high-level API tests
+        if: needs.should-run.outputs.high_level_api_test == 'true'
+        run: |
+          BIG_TESTS_INSTANCE=TRUE make test_high_level_api
+
+      - name: Run example tests
+        if: needs.should-run.outputs.examples_test == 'true'
+        run: |
+          make test_examples
+          make dark_market
+
+      - name: Run apps tests
+        if: needs.should-run.outputs.apps_test == 'true'
+        run: |
+          make test_trivium
+          make test_kreyvium
+
+      - name: Set pull-request URL
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          echo "PULL_REQUEST_MD_LINK=[pull-request](${{ vars.PR_BASE_URL }}${{ github.event.pull_request.number }}), "  >> "${GITHUB_ENV}"
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "CPU tests finished with status: ${{ job.status }}. (${{ env.PULL_REQUEST_MD_LINK }}[action run](${{ env.ACTION_RUN_URL }}))"
+
+  teardown-instance:
+    name: Teardown instance (cpu-tests)
+    if: ${{ always() && needs.setup-instance.result == 'success' }}
+    needs: [ setup-instance, cpu-tests ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop remote instance
+        id: stop-instance
+        if: env.SECRETS_AVAILABLE == 'true'
+        uses: zama-ai/slab-github-runner@79939325c3c429837c10d6041e4fd8589d328bac
+        with:
+          mode: stop
+          github-token: ${{ secrets.SLAB_ACTION_TOKEN }}
+          slab-url: ${{ secrets.SLAB_BASE_URL }}
+          job-secret: ${{ secrets.JOB_SECRET }}
+          label: ${{ needs.setup-instance.outputs.runner-name }}
+
+      - name: Slack Notification
+        if: ${{ failure() }}
+        continue-on-error: true
+        uses: rtCamp/action-slack-notify@c33737706dea87cd7784c687dadc9adf1be59990
+        env:
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_MESSAGE: "Instance teardown (cpu-tests) finished with status: ${{ job.status }}. (${{ env.ACTION_RUN_URL }})"
