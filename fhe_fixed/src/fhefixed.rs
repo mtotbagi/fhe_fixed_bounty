@@ -193,18 +193,11 @@ impl FixedServerKey {
             self.key.full_propagate_parallelized(c.inner_mut());
         }
         let num_blocks: usize = (c.size()/2) as usize;
-        let frac_bits = c.frac();
-        let int_bits = c.size() - frac_bits;
-        // Because we need to scale with 4^n, not 2^n it get's messy when frac is odd
-        let blocks_to_add: usize = (int_bits % 2 + 1) as usize;
-        let new_size=  c.size() + 2 * (blocks_to_add as u32);
-        let new_frac = c.size() + (c.frac() % 2);
-        
+        let new_size=  c.size() + 2;
+        let new_frac = c.size();
         // We divide everything by 4^scale_factor,
         // in the end the result is multiplied with 2^scale_factor
-        // TODO when the input is relatively small, this converges slowly,
-        // we should base the scaling factor on ilog
-        let scale_factor = (new_frac - c.frac()) / 2;
+        
         /*println!("size: {}", c.size());
         println!("frac: {}", c.frac());
         println!("int_bits: {}", int_bits);
@@ -220,17 +213,49 @@ impl FixedServerKey {
             todo!()
         }
         else {
-            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut inner, blocks_to_add);
+            // We will scale c into the range [0.25, 1) by shifting it with ilog4+1 blocks
+            // The ilog4 here means as a fixed point number, not as the inner integer representing it
+            // This is a bit messy because frac can be odd
+
+            // We would like to do the following: extend c.inner with size/2 blocks lsb
+            // (This too probably could be more efficient, but it is messy enough as it is)
+            // Blockshift with ilog4(c.inner)+1 blocks right (this is an encrypted shift)
+            // Cut of the unnecessary 0 blocks from the front
+            // Create a new InnerFheFixed with c.size() as it's frac
+            // But if c.frac() is odd, then this is shifting by 2^odd, which means we can't scale back
+            let mut tmp_inner: Cipher = if c.frac() % 2 == 0 {
+                inner.clone()
+            }
+            else {
+                let tmp: Cipher = self.key
+                    .extend_radix_with_trivial_zero_blocks_msb(&mut inner, 1);
+                self.key.unchecked_add_parallelized(&tmp, &tmp)
+            };
+            let ilog2 = self.key.smart_ilog2_parallelized(&mut tmp_inner);
+            let mut ilog4: Cipher = self.key.scalar_right_shift_parallelized(&ilog2, 1);
+            self.key.smart_scalar_add_assign_parallelized(&mut ilog4, 1);
+
+            self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
+                (&mut tmp_inner, num_blocks);
+            self.key.full_propagate_parallelized(&mut ilog4);
+            tmp_inner = self.key.smart_block_shift_left(&mut tmp_inner, &mut ilog4);
+
+            let mut new_blocks = tmp_inner.clone().into_blocks();
+            new_blocks.drain(num_blocks+1..);
             
-            let mut x_k = T::new(inner.clone(), new_size, new_frac);
-            let mut r_k = T::new(inner.clone(), new_size, new_frac);
+            let mut x_k = T::new(Cipher::from_blocks(new_blocks.clone()), new_size, new_frac);
+            let mut r_k = T::new(Cipher::from_blocks(new_blocks.clone()), new_size, new_frac);
 
             let mut three_inner: Cipher = self.key
-                .create_trivial_radix(3*blocks_to_add as u32, blocks_to_add);
+                .create_trivial_radix(3u32, 1);
             self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
                 (&mut three_inner, num_blocks);
+            
             let mut three: T = T::new(three_inner, new_size, new_frac);
             
+            // TODO the first 5 iterations (which are not necessarily quadratically convergent)
+            // should be replaced with a self.key.smart_match_value_parallelized(ct, matches);
+            // That is, we should look up the first r_k from a table
             for _ in 0..iters {
                 // We know that three always has empty carries, it doesn't need to be propagated
                 if self.key.is_sub_possible(three.inner(), x_k.inner()).is_err() {
@@ -245,14 +270,18 @@ impl FixedServerKey {
                 x_k = self.smart_mul(&mut x_k, &mut m_k_sqr);
                 r_k = self.smart_mul(&mut r_k, &mut m_k);
             }
-            // Now 2^n * r_k = sqrt(c), where n = ceil((Size-Frac) / 2)
+            let blocks_to_drain = ((c.size() + c.frac() % 2 - c.frac()) >> 1) as usize;
+            let blocks_to_add = num_blocks + 1 - blocks_to_drain as usize;
+            let mut result_inner = r_k.into_inner();
+            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut result_inner, blocks_to_add);
 
-            let mut result_inner = r_k.clone().into_inner();
-            
-            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, scale_factor);
+            // DONT'T LOOK AT THIS, BUT IT SEEMS TO WORK. WILL BE REWORKED
+            // (I don't know why this works either)
+            self.key.smart_left_shift_assign_parallelized(&mut result_inner, &mut ilog4);
+            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, 2);
+            self.key.scalar_left_shift_assign_parallelized(&mut result_inner, c.frac() % 2);
             let mut result_blocks = result_inner.into_blocks();
-            let len = result_blocks.len();
-            result_blocks.drain(len-blocks_to_add..len);
+            result_blocks.drain(0..blocks_to_drain);
             T::new(Cipher::from_blocks(result_blocks), c.size(), c.frac())
         }
 
