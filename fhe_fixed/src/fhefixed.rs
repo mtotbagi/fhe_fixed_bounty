@@ -411,7 +411,11 @@ Frac: Unsigned,
         key.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut result.inner, blocks_with_frac);
 
         smart_sqr_assign(&mut result.inner, &key.key);
-        // at the end of this there is a propagate
+
+        //resolve carries both for shift and for drain
+        if !result.inner.block_carries_are_empty() {
+            key.key.full_propagate_parallelized(&mut result.inner);
+        }
         
         if Frac::U8 % 2 != 0 {
             // bcs of above, this is fine as a default
@@ -668,12 +672,16 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
     let terms = compute_terms_for_sqr_low(c, key);
     
     // we calculate the terms a_i * a_i, and add them together into a single ciphertext
-    let same_terms = compute_block_sqrs::<T>(c, key);
+    let mut same_terms = compute_block_sqrs::<T>(c, key);
     
     if let Some(result) = key.unchecked_sum_ciphertexts_vec_parallelized(terms) {
         *c = result
     } else {
         key.create_trivial_zero_assign_radix(c)
+    }
+
+    if !same_terms.block_carries_are_empty() {
+        key.full_propagate_parallelized(&mut same_terms);
     }
     
     // This may be done with a left shift, but that is more expensive
