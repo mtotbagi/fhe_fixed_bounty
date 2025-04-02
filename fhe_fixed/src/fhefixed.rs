@@ -290,8 +290,9 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_add(&self, rhs: &mut Self, key: &SKey) -> Self;
     fn smart_sub(&self, rhs: &mut Self, key: &SKey) -> Self;
     fn smart_mul(&mut self, rhs: &mut Self, key: &SKey) -> Self;
-    fn smart_sqr(&mut self, key: &SKey) -> Self;
     fn smart_mul_assign(&mut self, rhs: &mut Self, key: &SKey);
+    fn smart_sqr(&mut self, key: &SKey) -> Self;
+    fn smart_sqr_assign(&mut self, key: &FixedServerKey);
     fn smart_div(&self, rhs: &mut Self, key: &SKey) -> Self;
 
     // Unary operations
@@ -311,6 +312,7 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_ne(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_gt(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_ge(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
+    fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock;
     fn smart_lt(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_le(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
 
@@ -427,6 +429,9 @@ Frac: Unsigned,
         Self::new(Cipher::from_blocks(blocks))
     }
 
+    fn smart_sqr_assign(&mut self, key: &FixedServerKey) {
+        *self = self.smart_sqr(key);
+    }
 
     fn smart_div(&self, rhs: &mut Self, key: &FixedServerKey) -> Self {
         let _ = key;
@@ -522,6 +527,9 @@ Frac: Unsigned,
     }
     fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.key.smart_ge_parallelized(&mut self.inner, &mut rhs.inner)
+    }
+    fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+        key.key.unchecked_ge_parallelized(&self.inner, &rhs.inner)
     }
     fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.key.smart_lt_parallelized(&mut self.inner, &mut rhs.inner)
