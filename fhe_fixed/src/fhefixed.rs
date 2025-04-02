@@ -10,6 +10,7 @@ use rayon::{prelude::*, result};
 use fixed::traits::{Fixed, FixedUnsigned};
 use fixed::types::U10F6;
 use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
+use tfhe::integer::prelude::ServerKeyDefaultCMux;
 use tfhe::FheBool;
 use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U16, U6, U8, U2};
 use fixed::{traits::ToFixed, types::U8F8};
@@ -319,10 +320,11 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_add(&self, rhs: &mut Self, key: &SKey) -> Self;
     fn smart_sub(&self, rhs: &mut Self, key: &SKey) -> Self;
     fn smart_mul(&mut self, rhs: &mut Self, key: &SKey) -> Self;
-    fn smart_sqr(&mut self, key: &SKey) -> Self;
     fn smart_mul_assign(&mut self, rhs: &mut Self, key: &SKey);
+    fn smart_sqr(&mut self, key: &SKey) -> Self;
+    fn smart_sqr_assign(&mut self, key: &FixedServerKey);
     fn smart_div(&self, rhs: &mut Self, key: &SKey) -> Self;
-
+    
     // Unary operations
     fn smart_ilog2(&mut self, key: &SKey) -> SignedRadixCiphertext;
     fn smart_sqrt(&mut self, key: &SKey) -> Self;
@@ -340,6 +342,7 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_ne(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_gt(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_ge(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
+    fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock;
     fn smart_lt(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_le(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
 
@@ -370,8 +373,9 @@ Size: Unsigned +
       Cmp<Frac> +
       typenum::private::IsGreaterOrEqualPrivate<Frac, <Size as typenum::Cmp<Frac>>::Output> +
       Even + Cmp<U2> +
-      typenum::private::IsGreaterOrEqualPrivate<U2, <Size as typenum::Cmp<U2>>::Output>,
-Frac: Unsigned,
+      typenum::private::IsGreaterOrEqualPrivate<U2, <Size as typenum::Cmp<U2>>::Output> +
+      Send + Sync,
+Frac: Unsigned + Send + Sync,
 <Size as IsGreaterOrEqual<Frac>>::Output: Same<True>,
 <Size as IsGreaterOrEqual<U2>>::Output: Same<True>
 {
@@ -440,8 +444,12 @@ Frac: Unsigned,
         key.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut result.inner, blocks_with_frac);
 
         smart_sqr_assign(&mut result.inner, &key.key);
-        // at the end of this there is a propagate
-        
+
+        //resolve carries both for shift and for drain
+        if !result.inner.block_carries_are_empty() {
+            key.key.full_propagate_parallelized(&mut result.inner);
+        }
+
         if Frac::U8 % 2 != 0 {
             // bcs of above, this is fine as a default
             key.key.scalar_left_shift_assign_parallelized(&mut result.inner, 1);
@@ -452,6 +460,9 @@ Frac: Unsigned,
         Self::new(Cipher::from_blocks(blocks))
     }
 
+    fn smart_sqr_assign(&mut self, key: &FixedServerKey) {
+        *self = self.smart_sqr(key);
+    }
 
     fn smart_div(&self, rhs: &mut Self, key: &FixedServerKey) -> Self {
         let _ = key;
@@ -472,8 +483,82 @@ Frac: Unsigned,
     }
 
     fn smart_sqrt_guess_block(&mut self, key: &FixedServerKey) -> Self {
-        let _ = key;
-        todo!()
+        // Pseudo code, unrefined, for msg_mod = 4:
+        // We know that all bits greater than FRAC + (SIZE - FRAC) / 2 are 0, since their square is greater than maxvalue
+        // so current guess is 0000xxxx.yyyyyyyy (in case of U8F8)
+        // loop
+        //      guess the 3 options (b1=11, b2=10, b3=01) for most sig. unknown block (also b4=00)
+        //      compute in parallel
+        //          sq1, sq2, sq3 = (current_guess+b1)^2, (current_guess+b2)^2, (current_guess+b3)^2
+        //      evaluate in parallel
+        //          r1, r2 = sq1<=num?b1:b2, sq3<=num?b3:b4
+        //      evaluate
+        //          res = sq2<=num?r1:r2
+        //      current_guess += res
+
+        //needed for the unchecked ge later on
+        if !self.inner.block_carries_are_empty() {
+            key.key.full_propagate_parallelized(&mut self.inner);
+        }
+        // initialise the result as a trivial 0
+        let mut res = Self::new(key.key.create_trivial_zero_radix(self.inner.blocks().len()));
+
+        // The first few blocks are always 0, since their square would be too large. The number of such bits is the half
+        // of the integer bits rounded down, and the number of blocks is the half of the bits rounded down.
+        // TODO this only supports blocksize 2 -> chaanged the rightshift from 2 to msg modulus, now it is good, but needs new explanation
+        let i_blocks = (Size::USIZE - Frac::USIZE) >> (key.key.message_modulus().0.ilog2() - 1);
+        let frac_blocks = (Frac::USIZE + key.key.message_modulus().0.ilog2() as usize - 1) >> (key.key.message_modulus().0.ilog2() - 1);
+        let max_nonzero_block_idx = i_blocks / 2 + frac_blocks;
+
+        // all the possible blocks we could have
+        let guess_blocks = (0..key.key.message_modulus().0).into_par_iter().map(
+            |clear_guess| {
+                //encrypt the guess for the block 
+                key.key.create_trivial_radix::<u32, Cipher>(clear_guess as u32, 1usize).clone()             
+            }
+        ).collect::<Vec<Cipher>>();
+        
+        for idx in (0..max_nonzero_block_idx).rev() {
+            let mut guess_blocks = guess_blocks.clone();
+            let mut squares = (1..key.key.message_modulus().0 as usize).into_par_iter().map(
+                |clear_guess| {
+                    // clone res
+                    let mut res_plus_guess = res.clone();
+                    // assign guess block, so now we have res+guess, with the guessed block in the correct position
+                    res_plus_guess.inner.blocks_mut()[idx] = guess_blocks[clear_guess].blocks()[0].clone();
+                    // square the sum and return it
+                    res_plus_guess.smart_sqr_assign(key);
+                    if !res_plus_guess.inner.block_carries_are_empty() {
+                        key.key.full_propagate_parallelized(&mut res_plus_guess.inner);
+                    }
+                    res_plus_guess
+                }
+            ).collect::<Vec<Self>>();
+            
+            //we can eleminate half of the remaining guesses at a time, for now all are possible
+            let mut iter_size = guess_blocks.len();
+            
+            // evaluate which guess is the correct one this needs to be some kind of pyramid scheme TODO
+            while iter_size > 1 {
+                iter_size >>= 1;
+                guess_blocks = (0..iter_size).into_par_iter().map(
+                    |i| {
+                        // did we really need an unchecked ge just for this, or maybe I should use key.key.stuff here?
+                        let keep_smaller = self.unchecked_ge(&squares[i*2], key);
+                        key.key.if_then_else_parallelized(&keep_smaller, &guess_blocks[i * 2 + 1], &guess_blocks[i * 2])
+                    }
+                ).collect::<Vec<Cipher>>();
+
+                //remove all even indicies as we just did the operation on them, they aren't needed anymore
+                for i in (0..iter_size).rev() {
+                    squares.remove(i*2);
+                }
+            }
+
+            // only one guess left, it is the right one
+            res.inner.blocks_mut()[idx] = guess_blocks[0].blocks()[0].clone();
+        }
+        res
     }
 
     
@@ -547,6 +632,9 @@ Frac: Unsigned,
     }
     fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.key.smart_ge_parallelized(&mut self.inner, &mut rhs.inner)
+    }
+    fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+        key.key.unchecked_ge_parallelized(&self.inner, &rhs.inner)
     }
     fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.key.smart_lt_parallelized(&mut self.inner, &mut rhs.inner)
@@ -697,12 +785,16 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
     let terms = compute_terms_for_sqr_low(c, key);
     
     // we calculate the terms a_i * a_i, and add them together into a single ciphertext
-    let same_terms = compute_block_sqrs::<T>(c, key);
+    let mut same_terms = compute_block_sqrs::<T>(c, key);
     
     if let Some(result) = key.unchecked_sum_ciphertexts_vec_parallelized(terms) {
         *c = result
     } else {
         key.create_trivial_zero_assign_radix(c)
+    }
+
+    if !same_terms.block_carries_are_empty() {
+        key.full_propagate_parallelized(&mut same_terms);
     }
     
     // This may be done with a left shift, but that is more expensive

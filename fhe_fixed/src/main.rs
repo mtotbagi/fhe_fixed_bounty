@@ -37,12 +37,12 @@ fn main() {
 
     let clear_a: f64 = input.trim().parse().expect("Please type a number!");
     input.clear();
-    println!("Please input the iteration count:");
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
+    // println!("Please input the iteration count:");
+    // io::stdin()
+    //     .read_line(&mut input)
+    //     .expect("Failed to read line");
 
-    let iters: u32 = input.trim().parse().expect("Please type a number!");
+    // let iters: u32 = input.trim().parse().expect("Please type a number!");
     /*println!("Builtin result:");
     println!("{:017.4b}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());
     println!("a: {:14}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());*/
@@ -70,7 +70,7 @@ fn main() {
     let now2 = Instant::now();
     
     //let a_sqr: InnerFheFixedU = server_key.smart_sqrt_goldschmidt(&mut a, iters, &client_key.key);
-    let a_sqr:FheFixedU12F4 = a.smart_sqrt_goldschmidt(iters,&server_key);
+    let  a_sqrt:FheFixedU12F4 = a.smart_sqrt_guess_block(&server_key);
     //let a_round:FheFixedU12F4 = a.smart_round(&server_key);
 
     // let b_ceil:FheFixedU16F0 = b.smart_ceil(&server_key);
@@ -88,12 +88,12 @@ fn main() {
     
     println!("{:017.4b}", a.decrypt(&client_key));
     println!("a: {:14}", a.decrypt(&client_key));
-    println!("{:017.4b}", a_sqr.decrypt(&client_key));
-    println!("sqrt: {:12}", a_sqr.decrypt(&client_key));
+    println!("{:017.4b}", a_sqrt.decrypt(&client_key));
+    println!("sqrt: {:12}", a_sqrt.decrypt(&client_key));
 
-    println!("clear goldschmidt:");
-    println!("{:017.4b}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
-    println!("a: {:14}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
+    // println!("clear goldschmidt:");
+    // println!("{:017.4b}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
+    // println!("a: {:14}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
 
     println!("clear fixed builtin:");
     println!("{:017.4b}", U12F4::from_num(clear_a).wrapping_sqrt());
@@ -221,7 +221,7 @@ mod tests {
           Cmp<Frac> +
           typenum::private::IsGreaterOrEqualPrivate<Frac, <U16 as typenum::Cmp<Frac>>::Output> +
           PowerOfTwo + Even,
-    Frac: Unsigned + Even + LeEqU16 + LeEqU128,
+    Frac: Unsigned + Even + LeEqU16 + LeEqU128 + Send + Sync,
     <U16 as IsGreaterOrEqual<Frac>>::Output: Same<True>{
         let fixed_lhs = FixedU16::<Frac>::wrapping_from_num(lhs);
         let fixed_rhs = FixedU16::<Frac>::wrapping_from_num(rhs);
