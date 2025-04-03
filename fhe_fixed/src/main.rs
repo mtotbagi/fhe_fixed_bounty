@@ -6,7 +6,7 @@ use std::time::Instant;
 use fixed::traits::FixedUnsigned;
 use fixed::types::{U10F6, U12F4};
 use fixed::FixedU128;
-use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U16, U2, U3, U32, U4, U6, U8};
+use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U16, U2, U3, U32, U4, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
 use tfhe::integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext};
 use tfhe::integer::{ServerKey, ClientKey};
@@ -16,12 +16,10 @@ pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint:
 
 mod fhefixed;
 mod arb_fixed_u;
+mod types;
 
 use crate::fhefixed::*;
 
-pub type FheFixedU12F4 = FheFixedU<U16, U4>;
-pub type FheFixedU13F3 = FheFixedU<U16, U3>;
-pub type FheFixedU16F0 = FheFixedU<U16, U0>;
 
 fn main() {
 
@@ -37,12 +35,12 @@ fn main() {
 
     let clear_a: f64 = input.trim().parse().expect("Please type a number!");
     input.clear();
-    // println!("Please input the iteration count:");
-    // io::stdin()
-    //     .read_line(&mut input)
-    //     .expect("Failed to read line");
+    println!("Please input the iteration count:");
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
 
-    // let iters: u32 = input.trim().parse().expect("Please type a number!");
+    let iters: u32 = input.trim().parse().expect("Please type a number!");
     /*println!("Builtin result:");
     println!("{:017.4b}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());
     println!("a: {:14}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());*/
@@ -60,7 +58,7 @@ fn main() {
 
     /*let mut a = InnerFheFixedU::new(client_key.key
         .encrypt_radix(U12F4::from_num(clear_a).to_bits(), 8), 16, 4);*/
-    let mut a = FheFixedU12F4::encrypt(clear_a, &client_key);
+    let mut a = types::FheU12F4::encrypt(clear_a, &client_key);
     // let mut b:FheFixedU16F0 = FheFixedU16F0::encrypt(clear_b, &client_key);
     let elapsed = now.elapsed();
     println!("Time for encrypting the inputs: {:.2?}", elapsed);
@@ -70,7 +68,7 @@ fn main() {
     let now2 = Instant::now();
     
     //let a_sqr: InnerFheFixedU = server_key.smart_sqrt_goldschmidt(&mut a, iters, &client_key.key);
-    let  a_sqrt:FheFixedU12F4 = a.smart_sqrt_guess_block(&server_key);
+    let  a_sqrt: types::FheU12F4 = a.smart_sqrt_goldschmidt(iters, &server_key);
     //let a_round:FheFixedU12F4 = a.smart_round(&server_key);
 
     // let b_ceil:FheFixedU16F0 = b.smart_ceil(&server_key);
