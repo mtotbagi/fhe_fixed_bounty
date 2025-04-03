@@ -279,7 +279,7 @@ impl FixedServerKey {
             // DONT'T LOOK AT THIS, BUT IT SEEMS TO WORK. WILL BE REWORKED
             // (I don't know why this works either)
             self.key.smart_left_shift_assign_parallelized(&mut result_inner, &mut ilog4);
-            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, 2);
+            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, (c.frac()+1) >> 1);
             self.key.scalar_left_shift_assign_parallelized(&mut result_inner, c.frac() % 2);
             let mut result_blocks = result_inner.into_blocks();
             result_blocks.drain(0..blocks_to_drain);
