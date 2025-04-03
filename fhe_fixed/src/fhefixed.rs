@@ -115,8 +115,12 @@ impl FixedServerKey {
             propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
         }
 
+        self.unchecked_add(lhs, rhs)
+    }
+
+    pub(crate) fn unchecked_add<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let mut result_value = lhs.inner().clone();
-        self.key.smart_add_assign(&mut result_value, rhs.inner_mut());
+        self.key.unchecked_add_assign_parallelized(&mut result_value, rhs.inner());
         T::new(result_value, lhs.size(), lhs.frac())
     }
 
@@ -129,8 +133,14 @@ impl FixedServerKey {
             propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
         }
 
+        self.unchecked_sub(lhs, rhs)
+    }
+
+    pub(crate) fn unchecked_sub<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let mut result_value = lhs.inner().clone();
-        self.key.smart_sub_assign(&mut result_value, rhs.inner_mut());
+        // This should be unchecked_sub_assign_parallelized, but there is no such function!
+        // Only a non-parallelized version of it exists
+        self.key.smart_sub_assign_parallelized(&mut result_value, &mut rhs.inner().clone());
         T::new(result_value, lhs.size(), lhs.frac())
     }
 
@@ -141,15 +151,19 @@ impl FixedServerKey {
 
         propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
 
+        self.unchecked_mul(lhs, rhs)
+    }
+
+    pub(crate) fn unchecked_mul<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let blocks_with_frac = (lhs.frac() + 1) >> 1;
 
         let mut lhs_inner = lhs.inner().clone();
         let mut rhs_inner = rhs.inner().clone();
 
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign
-        (&mut lhs_inner, blocks_with_frac as usize);
+            (&mut lhs_inner, blocks_with_frac as usize);
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign
-        (&mut rhs_inner, blocks_with_frac as usize);
+            (&mut rhs_inner, blocks_with_frac as usize);
 
         self.key.unchecked_mul_assign_parallelized(&mut lhs_inner, &rhs_inner);
 
@@ -164,11 +178,16 @@ impl FixedServerKey {
     }
 
     pub(crate) fn smart_sqr<T: FixedCiphertext>(&self, c: &mut T) -> T {
+        assert!(c.size() >= c.frac());
         
         if !c.inner().block_carries_are_empty() {
             self.key.full_propagate_parallelized(c.inner_mut());
         }
-        
+
+        self.unchecked_sqr(c)
+    }
+    
+    pub(crate) fn unchecked_sqr<T: FixedCiphertext>(&self, c: &T) -> T {
         let blocks_with_frac = (c.frac() + 1) >> 1;
 
         let mut inner = c.inner().clone();
@@ -177,7 +196,9 @@ impl FixedServerKey {
         (&mut inner, blocks_with_frac as usize);
 
         smart_sqr_assign(&mut inner, &self.key);
-
+        if !inner.block_carries_are_empty() {
+            self.key.full_propagate_parallelized(&mut inner);
+        }
         if c.frac() % 2 != 0 {
             self.key.scalar_left_shift_assign_parallelized(&mut inner, 1);
         }
@@ -187,7 +208,7 @@ impl FixedServerKey {
 
         T::new(Cipher::from_blocks(blocks), c.size(), c.frac())
     }
-    
+
     // TODO rewrite to work with any block length (currently works for 2)
     pub(crate) fn smart_sqrt_goldschmidt<T: FixedCiphertext>(&self, c: &mut T, iters: u32) -> T {
         if !c.inner().block_carries_are_empty() {
