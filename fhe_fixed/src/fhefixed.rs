@@ -43,7 +43,7 @@ pub(crate) struct InnerFheFixedU {
     frac: u32
 }
 
-pub trait FixedCiphertext: Clone + Sync{
+pub trait FixedCiphertext: Clone + Sync + Send{
     const IS_SIGNED: bool;
     fn inner(&self) -> &Cipher;
     fn inner_mut(&mut self) -> &mut Cipher;
@@ -112,7 +112,7 @@ impl FixedServerKey {
         assert_eq!(lhs.frac(), rhs.frac());
 
         if self.key.is_add_possible(lhs.inner(), rhs.inner()).is_err() {
-            propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
+            propagate_if_needed_parallelized(&mut[lhs.inner_mut(), rhs.inner_mut()], &self.key);
         }
 
         self.unchecked_add(lhs, rhs)
@@ -130,7 +130,7 @@ impl FixedServerKey {
         assert_eq!(lhs.frac(), rhs.frac());
 
         if self.key.is_sub_possible(lhs.inner(), rhs.inner()).is_err() {
-            propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
+            propagate_if_needed_parallelized(&mut[lhs.inner_mut(), rhs.inner_mut()], &self.key);
         }
 
         self.unchecked_sub(lhs, rhs)
@@ -149,7 +149,7 @@ impl FixedServerKey {
         assert_eq!(lhs.size(), rhs.size());
         assert_eq!(lhs.frac(), rhs.frac());
 
-        propagate_if_needed_parallelized(lhs.inner_mut(), rhs.inner_mut(), &self.key);
+        propagate_if_needed_parallelized(&mut[lhs.inner_mut(), rhs.inner_mut()], &self.key);
 
         self.unchecked_mul(lhs, rhs)
     }
@@ -287,21 +287,23 @@ impl FixedServerKey {
                 
                 self.key.scalar_right_shift_assign_parallelized(m_k.inner_mut(), 1);
                 
-                let mut m_k_sqr = self.smart_mul(&mut m_k.clone(), &mut m_k.clone());
-                
-                x_k = self.smart_mul(&mut x_k, &mut m_k_sqr);
-                r_k = self.smart_mul(&mut r_k, &mut m_k);
+                propagate_if_needed_parallelized(&mut [m_k.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
+                rayon::join(
+                    || {
+                        let mut m_k_sqr = self.unchecked_mul(&m_k, &m_k);
+                        propagate_if_needed_parallelized(&mut [m_k_sqr.inner_mut()], &self.key);
+                        x_k = self.unchecked_mul(&x_k, &m_k_sqr);
+                    },
+                    || r_k = self.unchecked_mul(&r_k, &m_k),
+                );
             }
             let blocks_to_drain = ((c.size() + c.frac() % 2 - c.frac()) >> 1) as usize;
             let blocks_to_add = num_blocks + 1 - blocks_to_drain as usize;
             let mut result_inner = r_k.into_inner();
             self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut result_inner, blocks_to_add);
 
-            // DONT'T LOOK AT THIS, BUT IT SEEMS TO WORK. WILL BE REWORKED
-            // (I don't know why this works either)
             self.key.smart_left_shift_assign_parallelized(&mut result_inner, &mut ilog4);
-            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, (c.frac()+1) >> 1);
-            self.key.scalar_left_shift_assign_parallelized(&mut result_inner, c.frac() % 2);
+            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, (c.frac()+1) >> 1 - c.frac() % 2);
             let mut result_blocks = result_inner.into_blocks();
             result_blocks.drain(0..blocks_to_drain);
             T::new(Cipher::from_blocks(result_blocks), c.size(), c.frac())
@@ -722,19 +724,16 @@ Frac: Unsigned + Send + Sync,
 pub type FheFixedU6F10 = FheFixedU<U16, U10>;
 pub type FheFixedUF6 = FheFixedU<U6, U16>;
 
-/// Given two ciphertexts, propagates them in parallel, if their block carries are not empty
-pub(crate) fn propagate_if_needed_parallelized<T: IntegerRadixCiphertext>(lhs: &mut T, rhs: &mut T, key: &ServerKey) {
-    rayon::join(
-        || if !lhs.block_carries_are_empty() {
-            key.full_propagate_parallelized(lhs);
-        
-        },
-        || if !rhs.block_carries_are_empty() {
-            key.full_propagate_parallelized(rhs);
-        },
-    );
+/// Given an array ciphertexts, propagates them in parallel, if their block carries are not empty
+pub(crate) fn propagate_if_needed_parallelized<T: IntegerRadixCiphertext>(
+    ciphertexts: &mut [&mut T],
+    key: &ServerKey,
+) {
+    ciphertexts
+        .par_iter_mut()
+        .filter(|cipher| !cipher.block_carries_are_empty())
+        .for_each(|cipher| key.full_propagate_parallelized(*cipher));
 }
-
 
 /// ### NOTE
 /// Currently the carry and the overflow from the msb block may or may not be lost. This may or may not change!
