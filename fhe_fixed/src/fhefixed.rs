@@ -365,7 +365,6 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_ne(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_gt(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_ge(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
-    fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock;
     fn smart_lt(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
     fn smart_le(&mut self, rhs: &mut Self, key: &SKey) -> BooleanBlock;
 
@@ -530,8 +529,11 @@ Frac: Unsigned + Send + Sync,
         // of the integer bits rounded down, and the number of blocks is the half of the bits rounded down.
         // TODO this only supports blocksize 2 -> chaanged the rightshift from 2 to msg modulus, now it is good, but needs new explanation
         let i_blocks = (Size::USIZE - Frac::USIZE) >> (key.key.message_modulus().0.ilog2() - 1);
-        let frac_blocks = (Frac::USIZE + key.key.message_modulus().0.ilog2() as usize - 1) >> (key.key.message_modulus().0.ilog2() - 1);
-        let max_nonzero_block_idx = i_blocks / 2 + frac_blocks;
+        let blocks_with_frac = (Frac::USIZE + key.key.message_modulus().0.ilog2() as usize - 1) >> (key.key.message_modulus().0.ilog2() - 1);
+        let max_nonzero_block_idx = i_blocks / 2 + blocks_with_frac;
+
+        //for comparisons we will need a longer version of self.inner
+        let wide_self = key.key.extend_radix_with_trivial_zero_blocks_lsb(&self.inner, blocks_with_frac);
 
         // all the possible blocks we could have
         let guess_blocks = (0..key.key.message_modulus().0).into_par_iter().map(
@@ -542,21 +544,37 @@ Frac: Unsigned + Send + Sync,
         ).collect::<Vec<Cipher>>();
         
         for idx in (0..max_nonzero_block_idx).rev() {
+            let blocks_to_drain = std::cmp::min(blocks_with_frac, idx * 2);
+
+            // we only need a restricted part of self for the comparison, so drain excess
+            let mut blocks = wide_self.clone().into_blocks();
+            blocks.drain(0..blocks_to_drain);
+            let narrow_self = Cipher::from_blocks(blocks);
+
             let mut guess_blocks = guess_blocks.clone();
-            let mut squares = (1..key.key.message_modulus().0 as usize).into_par_iter().map(
+            let mut wide_squares = (1..key.key.message_modulus().0 as usize).into_par_iter().map(
                 |clear_guess| {
-                    // clone res
-                    let mut res_plus_guess = res.clone();
+                    // clone res, and make it the correct length for squaring
+                    let mut res_plus_guess = res.inner.clone();
+                    key.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut res_plus_guess, blocks_with_frac);
+                    
                     // assign guess block, so now we have res+guess, with the guessed block in the correct position
-                    res_plus_guess.inner.blocks_mut()[idx] = guess_blocks[clear_guess].blocks()[0].clone();
-                    // square the sum and return it
-                    res_plus_guess.smart_sqr_assign(key);
-                    if !res_plus_guess.inner.block_carries_are_empty() {
-                        key.key.full_propagate_parallelized(&mut res_plus_guess.inner);
+                    res_plus_guess.blocks_mut()[idx] = guess_blocks[clear_guess].blocks()[0].clone();
+                    
+                    // square the sum
+                    smart_sqr_assign(&mut res_plus_guess, &key.key);
+
+                    //we have to propagate before draining
+                    if !res_plus_guess.block_carries_are_empty() {
+                        key.key.full_propagate_parallelized(&mut res_plus_guess);
                     }
-                    res_plus_guess
+
+                    // drain excess blocks, and return the needed part
+                    let mut blocks = res_plus_guess.into_blocks();
+                    blocks.drain(0..blocks_to_drain);
+                    Cipher::from_blocks(blocks)
                 }
-            ).collect::<Vec<Self>>();
+            ).collect::<Vec<Cipher>>();
             
             //we can eleminate half of the remaining guesses at a time, for now all are possible
             let mut iter_size = guess_blocks.len();
@@ -566,15 +584,14 @@ Frac: Unsigned + Send + Sync,
                 iter_size >>= 1;
                 guess_blocks = (0..iter_size).into_par_iter().map(
                     |i| {
-                        // did we really need an unchecked ge just for this, or maybe I should use key.key.stuff here?
-                        let keep_smaller = self.unchecked_ge(&squares[i*2], key);
+                        let keep_smaller = key.key.unchecked_ge(&narrow_self, &wide_squares[i*2]);
                         key.key.if_then_else_parallelized(&keep_smaller, &guess_blocks[i * 2 + 1], &guess_blocks[i * 2])
                     }
                 ).collect::<Vec<Cipher>>();
 
                 //remove all even indicies as we just did the operation on them, they aren't needed anymore
                 for i in (0..iter_size).rev() {
-                    squares.remove(i*2);
+                    wide_squares.remove(i*2);
                 }
             }
 
@@ -655,9 +672,6 @@ Frac: Unsigned + Send + Sync,
     }
     fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.key.smart_ge_parallelized(&mut self.inner, &mut rhs.inner)
-    }
-    fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
-        key.key.unchecked_ge_parallelized(&self.inner, &rhs.inner)
     }
     fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.key.smart_lt_parallelized(&mut self.inner, &mut rhs.inner)
