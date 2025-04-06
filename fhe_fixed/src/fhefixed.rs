@@ -590,7 +590,7 @@ Frac: Unsigned + Send + Sync,
                 iter_size >>= 1;
                 guess_blocks = (0..iter_size).into_par_iter().map(
                     |i| {
-                        let keep_smaller = key.key.unchecked_ge(&narrow_self, &wide_squares[i*2]);
+                        let keep_smaller = key.key.unchecked_ge_parallelized(&narrow_self, &wide_squares[i*2]);
                         key.key.if_then_else_parallelized(&keep_smaller, &guess_blocks[i * 2 + 1], &guess_blocks[i * 2])
                     }
                 ).collect::<Vec<Cipher>>();
