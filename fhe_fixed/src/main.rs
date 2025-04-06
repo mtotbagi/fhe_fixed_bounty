@@ -4,7 +4,7 @@ use std::io;
 use std::time::Instant;
 
 use fixed::traits::FixedUnsigned;
-use fixed::types::{U10F6, U12F4};
+use fixed::types::{U0F16, U10F6, U12F4};
 use fixed::FixedU128;
 use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U16, U2, U3, U32, U4, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
@@ -17,96 +17,18 @@ pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint:
 mod fhefixed;
 mod arb_fixed_u;
 mod types;
+mod fhe_testing_macros;
 
 use crate::fhefixed::*;
 
 
 fn main() {
-
-    let client_key = FixedClientKey::new();
-    let server_key = FixedServerKey::new(&client_key);
-
-    let mut input = String::new();
-
-    println!("Please input a:");
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-
-    let clear_a: f64 = input.trim().parse().expect("Please type a number!");
-    input.clear();
-    println!("Please input the iteration count:");
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-
-    let iters: u32 = input.trim().parse().expect("Please type a number!");
-    /*println!("Builtin result:");
-    println!("{:017.4b}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());
-    println!("a: {:14}", FixedU128::<U16>::from_num(clear_a).wrapping_sqrt());*/
-    // input.clear();
-    // println!("Please input b:");
-    // io::stdin()
-    //     .read_line(&mut input)
-    //     .expect("Failed to read line");
-
-    // let clear_b: f32 = input.trim().parse().expect("Please type a number!");
-    
-    println!("Please wait!");
-    let now = Instant::now();
-
-
-    /*let mut a = InnerFheFixedU::new(client_key.key
-        .encrypt_radix(U12F4::from_num(clear_a).to_bits(), 8), 16, 4);*/
-    let mut a = types::FheU12F4::encrypt(clear_a, &client_key);
-    // let mut b:FheFixedU16F0 = FheFixedU16F0::encrypt(clear_b, &client_key);
-    let elapsed = now.elapsed();
-    println!("Time for encrypting the inputs: {:.2?}", elapsed);
-    /*println!("{:017.4b}", a.decrypt(&client_key));
-    println!("a: {:14}", a.decrypt(&client_key));*/
-
-    let now2 = Instant::now();
-    
-    //let a_sqr: InnerFheFixedU = server_key.smart_sqrt_goldschmidt(&mut a, iters, &client_key.key);
-    let  a_sqrt: types::FheU12F4 = a.smart_sqrt_goldschmidt(iters, &server_key);
-    //let a_round:FheFixedU12F4 = a.smart_round(&server_key);
-
-    // let b_ceil:FheFixedU16F0 = b.smart_ceil(&server_key);
-    // let b_round:FheFixedU16F0 = b.smart_round(&server_key);
-    
-    let elapsed2 = now2.elapsed();
-    println!("Time for computing own sqrt: {:.2?}", elapsed2);
-    //let a_round:FheFixedU12F4 = a.smart_round(&server_key);
-
-    // let b_ceil:FheFixedU16F0 = b.smart_ceil(&server_key);
-    // let b_round:FheFixedU16F0 = b.smart_round(&server_key);
-    
-    println!("Please inspect the results:");
-    
-    
-    println!("{:017.4b}", a.decrypt(&client_key));
-    println!("a: {:14}", a.decrypt(&client_key));
-    println!("{:017.4b}", a_sqrt.decrypt(&client_key));
-    println!("sqrt: {:12}", a_sqrt.decrypt(&client_key));
-
-    // println!("clear goldschmidt:");
-    // println!("{:017.4b}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
-    // println!("a: {:14}", sqrt_goldschmidt(U12F4::from_num(clear_a), iters));
-
-    println!("clear fixed builtin:");
-    println!("{:017.4b}", U12F4::from_num(clear_a).wrapping_sqrt());
-    println!("a: {:14}", U12F4::from_num(clear_a).wrapping_sqrt());
-    /*println!("{:017.4b}", a_round.decrypt(&client_key));
-    println!("round: {:10}", a_round.decrypt(&client_key));*/
-    // println!();
-
-    // println!("{:016b}", b.decrypt(&client_key));
-    // println!("b: {:13}", b.decrypt(&client_key));
-    // println!("{:016b}", b_ceil.decrypt(&client_key));
-    // println!("ceil: {:10}", b_ceil.decrypt(&client_key));
-    // println!("{:016b}", b_round.decrypt(&client_key));
-    // println!("round: {:9}", b_round.decrypt(&client_key));
-    
+    test_func_manual!(U16, U4, ck, server_key,          // Type of the operation, and key names
+        a.smart_add(&mut b, &server_key),               // The operation to test
+        // U12F4::from_num(clear_a+clear_b),               // A ground truth to compare to, optional
+        | clear_a, a; clear_b, b |                      // The clear and encrypted name(s) of relevant variables
+        // iters                                        // The name(s) of variables that are only used as clear
+    );
 }
 
 pub fn sqrt_goldschmidt<F>(x: F, iters: u32) -> F
