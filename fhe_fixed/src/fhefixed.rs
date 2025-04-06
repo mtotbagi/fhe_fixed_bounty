@@ -564,9 +564,15 @@ Frac: Unsigned + Send + Sync,
                     // square the sum
                     smart_sqr_assign(&mut res_plus_guess, &key.key);
 
-                    //we have to propagate before draining
+                    //we have to propagate before draining/shifting
                     if !res_plus_guess.block_carries_are_empty() {
                         key.key.full_propagate_parallelized(&mut res_plus_guess);
+                    }
+
+                    // This may only be needed when modulus is > 2 TODO investigate
+                    if Frac::U8 % 2 != 0 {
+                        // bcs of above, this is fine as a default
+                        key.key.scalar_left_shift_assign_parallelized(&mut res_plus_guess, 1);
                     }
 
                     // drain excess blocks, and return the needed part

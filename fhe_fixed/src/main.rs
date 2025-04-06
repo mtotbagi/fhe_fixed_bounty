@@ -4,9 +4,9 @@ use std::io;
 use std::time::Instant;
 
 use fixed::traits::FixedUnsigned;
-use fixed::types::{U0F16, U10F6, U12F4};
+use fixed::types::{U0F16, U10F6, U11F5, U12F4, U16F0, U8F8};
 use fixed::FixedU128;
-use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U16, U2, U3, U32, U4, U6, U8};
+use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U16, U2, U3, U32, U4, U5, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
 use tfhe::integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext};
 use tfhe::integer::{ServerKey, ClientKey};
@@ -23,10 +23,10 @@ use crate::fhefixed::*;
 
 
 fn main() {
-    test_func_manual!(U16, U4, ck, server_key,          // Type of the operation, and key names
-        a.smart_add(&mut b, &server_key),               // The operation to test
-        // U12F4::from_num(clear_a+clear_b),               // A ground truth to compare to, optional
-        | clear_a, a; clear_b, b |                      // The clear and encrypted name(s) of relevant variables
+    test_func_manual!(U16, U5, ck, server_key,          // Type of the operation, and key names
+        a.smart_sqrt_guess_block(&server_key),               // The operation to test
+        U11F5::from_num(clear_a).wrapping_sqrt(),               // A ground truth to compare to, optional
+        | clear_a, a |                      // The clear and encrypted name(s) of relevant variables
         // iters                                        // The name(s) of variables that are only used as clear
     );
 }
