@@ -500,8 +500,7 @@ Frac: Unsigned + Send + Sync,
         inner
     }
     fn smart_sqrt(&mut self, key: &FixedServerKey) -> Self {
-        let _ = key;
-        todo!()
+        self.smart_sqrt_goldschmidt(6, key)
     }
 
     fn smart_sqrt_guess_block(&mut self, key: &FixedServerKey) -> Self {

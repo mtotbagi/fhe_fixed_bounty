@@ -39,7 +39,7 @@ mod tests {
     use super::*;
     use rand::random;
     use typenum::{U0, U1, U10, U12, U14, U16, U2, U4, U6, U64, U7, U8};
-    use fixed::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U32F32, U0F64, U16F0, U0F16, U0F8, U10F6, U12F4, U14F2, U1F7, U2F14, U4F12, U4F4, U5F3, U6F10, U8F0, U8F8}, FixedU16, FixedU8};
+    use fixed::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U32F32, U0F64, U16F0, U0F16, U0F8, U10F6, U12F4, U14F2, U2F6, U1F7, U2F14, U4F12, U4F4, U5F3, U6F10, U8F0, U8F8}, FixedU16, FixedU8};
     use crate::arb_fixed_u::ArbFixedU;
     use std::sync::LazyLock;
 
@@ -221,19 +221,67 @@ mod tests {
         };
     }
 
-    /*#[test]
-    fn test_sqrt_exhaustive_u1f7() {
-        for i in 0..=255u8 {
-            test_unary_op!(i,smart_sqrt,wrapping_sqrt,U8,U7,U1F7,true);
-        }
-    }*/
-
-    #[test]
-    fn test_floor_exhaustive_u1f7() {
-        for i in 0..=255u8 {
-            test_unary_op!(i,smart_floor,wrapping_floor,U8,U7,U1F7,true);
-        }
+    macro_rules! test_unary_op_exhaustive_u8 {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+        $(($TestFnName:ident, $Frac:ty)),*) => {
+            $(
+                #[test]
+                fn $TestFnName() {
+                    for i in 0..=255u8 {
+                        test_unary_op!(i,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
+                    }
+                }
+            )*
+        };
     }
+
+    test_unary_op_exhaustive_u8!(smart_sqrt_guess_block, wrapping_sqrt,
+        (test_sqrt_exhaustive_u0f8, U8),
+        (test_sqrt_exhaustive_u1f7, U7),
+        (test_sqrt_exhaustive_u2f6, U6),
+        (test_sqrt_exhaustive_u3f5, U5),
+        (test_sqrt_exhaustive_u4f4, U4),
+        (test_sqrt_exhaustive_u5f3, U3),
+        (test_sqrt_exhaustive_u6f2, U2),
+        (test_sqrt_exhaustive_u7f1, U1),
+        (test_sqrt_exhaustive_u8f0, U0)
+    );
+
+    test_unary_op_exhaustive_u8!(smart_floor, wrapping_floor,
+        (test_floor_exhaustive_u0f8, U8),
+        (test_floor_exhaustive_u1f7, U7),
+        (test_floor_exhaustive_u2f6, U6),
+        (test_floor_exhaustive_u3f5, U5),
+        (test_floor_exhaustive_u4f4, U4),
+        (test_floor_exhaustive_u5f3, U3),
+        (test_floor_exhaustive_u6f2, U2),
+        (test_floor_exhaustive_u7f1, U1),
+        (test_floor_exhaustive_u8f0, U0)
+    );
+
+    test_unary_op_exhaustive_u8!(smart_ceil, wrapping_ceil,
+        (test_ceil_exhaustive_u0f8, U8),
+        (test_ceil_exhaustive_u1f7, U7),
+        (test_ceil_exhaustive_u2f6, U6),
+        (test_ceil_exhaustive_u3f5, U5),
+        (test_ceil_exhaustive_u4f4, U4),
+        (test_ceil_exhaustive_u5f3, U3),
+        (test_ceil_exhaustive_u6f2, U2),
+        (test_ceil_exhaustive_u7f1, U1),
+        (test_ceil_exhaustive_u8f0, U0)
+    );
+
+    test_unary_op_exhaustive_u8!(smart_round, wrapping_round,
+        (test_round_exhaustive_u0f8, U8),
+        (test_round_exhaustive_u1f7, U7),
+        (test_round_exhaustive_u2f6, U6),
+        (test_round_exhaustive_u3f5, U5),
+        (test_round_exhaustive_u4f4, U4),
+        (test_round_exhaustive_u5f3, U3),
+        (test_round_exhaustive_u6f2, U2),
+        (test_round_exhaustive_u7f1, U1),
+        (test_round_exhaustive_u8f0, U0)
+    );
 
     macro_rules! test_sqr {
         ($ClearBits:expr, 
@@ -261,11 +309,29 @@ mod tests {
             assert_eq!(ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res);
         };
     }
-    
-    #[test]
-    fn test_sqr_exhaustive_u1f7() {
-        for i in 0..=255u8 {
-            test_sqr!(i,smart_sqr,wrapping_mul,U8,U7,U1F7,true);
-        }
-    }    
+    macro_rules! test_sqr_exhaustive_u8 {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+        $(($TestFnName:ident, $Frac:ty)),*) => {
+            $(
+                #[test]
+                fn $TestFnName() {
+                    for i in 0..=255u8 {
+                        test_sqr!(i,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
+                    }
+                }
+            )*
+        };
+    }
+
+    test_sqr_exhaustive_u8!(smart_sqr, wrapping_mul,
+        (test_sqr_exhaustive_u0f8, U8),
+        (test_sqr_exhaustive_u1f7, U7),
+        (test_sqr_exhaustive_u2f6, U6),
+        (test_sqr_exhaustive_u3f5, U5),
+        (test_sqr_exhaustive_u4f4, U4),
+        (test_sqr_exhaustive_u5f3, U3),
+        (test_sqr_exhaustive_u6f2, U2),
+        (test_sqr_exhaustive_u7f1, U1),
+        (test_sqr_exhaustive_u8f0, U0)
+    );
 }
