@@ -42,6 +42,7 @@ Frac: Unsigned,
         let mut len: usize = Size::USIZE / 64;
         if Size::USIZE % 64 != 0 { len += 1; }
         bits.resize(len, 0);
+        if Size::USIZE % 64 != 0 { bits[len-1] %= 1 << (Size::USIZE % 64); }
         Self::new(bits)
     }
 }
