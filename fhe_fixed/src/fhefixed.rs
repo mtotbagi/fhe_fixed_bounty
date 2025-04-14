@@ -741,9 +741,6 @@ Frac: Unsigned + Send + Sync,
     }
 }
 
-pub type FheFixedU6F10 = FheFixedU<U16, U10>;
-pub type FheFixedUF6 = FheFixedU<U6, U16>;
-
 /// Given an array ciphertexts, propagates them in parallel, if their block carries are not empty
 pub(crate) fn propagate_if_needed_parallelized<T: IntegerRadixCiphertext>(
     ciphertexts: &mut [&mut T],
