@@ -6,7 +6,7 @@ use std::time::Instant;
 use fixed::traits::FixedUnsigned;
 use fixed::types::{U0F16, U10F6, U11F5, U12F4, U16F0, U8F8};
 use fixed::FixedU128;
-use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U16, U2, U3, U32, U4, U5, U6, U8};
+use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U15, U16, U2, U3, U32, U4, U5, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
 use tfhe::integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext};
 use tfhe::integer::{ServerKey, ClientKey};
@@ -31,78 +31,15 @@ fn main() {
     );
 }
 
-pub fn sqrt_goldschmidt<F>(x: F, iters: u32) -> F
-where
-    F: FixedUnsigned + Copy,
-{
-    let (x_scaled, n) = if x <= 2 {
-        (x, 0)
-    } else {
-        let log4 = x.int_log(4)+1;
-        (x.wrapping_div(pow(F::from_num(4), log4)), log4)
-    };
-    //println!("x_scaled: {}", x_scaled);
-    let mut x_k = x_scaled;
-    let mut r_k = x_scaled;
-    
-    let three = F::from_num(3);
-    for _ in 0..iters {
-        let m_k = three.wrapping_sub(x_k).shr(1);
-        
-        
-        let m_k_sqr = m_k.wrapping_mul(m_k);
-        x_k = x_k.wrapping_mul(m_k_sqr);
-        
-        r_k = r_k.wrapping_mul(m_k);
-    }
-    
-    r_k * pow(F::from_num(2), n)
-}
-
-pub fn pow<F>(x: F, pow: i32) -> F
-where
-    F: FixedUnsigned + Copy,
-{
-    if pow < 0 {
-        return F::from_num(1) / pow_positive(x, (-pow) as u32);
-    }
-    
-    pow_positive(x, pow as u32)
-}
-
-fn pow_positive<F>(x: F, pow: u32) -> F
-where
-    F: FixedUnsigned + Copy,
-{
-    if pow == 0 {
-        return F::from_num(1);
-    }
-    if pow == 1 {
-        return x;
-    }
-    
-    let mut result = F::from_num(1);
-    let mut base = x;
-    let mut exponent = pow;
-    
-    while exponent > 0 {
-        if exponent & 1 == 1 {
-            result = result * base;
-        }
-        
-        base = base * base;
-        exponent >>= 1;
-    }
-    
-    result
-}
 
 #[cfg(test)]
 mod tests {
+    use crate::types::FheU4F4;
+
     use super::*;
     use rand::random;
     use typenum::{U0, U2, U12, U14, U16, U4, U8, U10, U6};
-    use fixed::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U0F16, U10F6, U12F4, U14F2, U16F0, U2F14, U4F12, U6F10, U8F8}, FixedU16};
+    use fixed::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U0F16, U10F6, U12F4, U14F2, U16F0, U2F14, U4F12, U4F4, U6F10, U8F8}, FixedU16, FixedU8};
 
     use std::sync::LazyLock;
 
@@ -112,6 +49,28 @@ mod tests {
     static SKEY: LazyLock<FixedServerKey> = LazyLock::new(|| {
         FixedServerKey::new(&CKEY)
     });
+
+    #[test]
+    fn test_mul_exhaustive_u4f4() {
+        for i in 0..=255u8 {
+            for j in 0..=255u8 {
+                let bits_a = SKEY.key.create_trivial_radix(i, 4);
+                let bits_b = SKEY.key.create_trivial_radix(j, 4);
+
+                let mut a = FheU4F4::from_bits(bits_a, &SKEY);
+                let mut b = FheU4F4::from_bits(bits_b, &SKEY);
+
+                let res = a.smart_mul(&mut b, &SKEY);
+
+                let clear_a = U4F4::from_bits(i);
+                let clear_b = U4F4::from_bits(j);
+                
+                let clear_res = clear_a * clear_b;
+
+                assert_eq!(clear_res.to_bits(), res.decrypt(&CKEY).parts[0] as u8);
+            }
+        }
+    }
 
     macro_rules! test_mul_u16 {
         ($FnName:ident, $Fixed:ty, $Frac:ty) => {
