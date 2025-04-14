@@ -47,6 +47,17 @@ Frac: Unsigned,
     }
 }
 
+impl<Size, Frac> PartialEq for ArbFixedU<Size, Frac> {
+    fn eq(&self, rhs: &ArbFixedU<Size, Frac>) -> bool {
+        // As parts.len() should always be Size / 64, this should never fail
+        assert!(self.parts.len() == rhs.parts.len());
+
+        self.parts == rhs.parts
+    }
+}
+
+impl<Size, Frac> Eq for ArbFixedU<Size, Frac> {}
+
 /* This converts back an ArbFixedU to a FixedU128, if Size <= 128 */
 impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedU<Size, Frac>> for FixedU128<Frac>
 where Size: LeEqU128
