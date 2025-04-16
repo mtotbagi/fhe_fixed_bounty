@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-use std::fmt::{Binary, Display, Formatter, Result};
+use std::fmt::{Debug, Binary, Display, Formatter, Result};
 use std::{marker::PhantomData, ops::Add};
 
 use fixed::traits::FixedUnsigned;
@@ -12,7 +12,7 @@ use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
 use typenum::{Bit, Cmp, Diff, IsGreater, PowerOfTwo, Same, True, UInt, Unsigned, U10, U1000, U16, U6, U8, U2,U0, IsGreaterOrEqual};
 use fixed::{traits::ToFixed, types::U8F8};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 /// Fixed point unsigned, of arbitrary length.
 /// 
 /// The first `Frac` bits in the u64s will be the fractional bits.
@@ -109,6 +109,16 @@ Frac: Unsigned + LeEqU128,
             if Size::USIZE <= 64 {vec![lower_bits]}
             else {vec![lower_bits, upper_bits]};
         Self::new(parts)
+    }
+}
+
+impl<Size: Unsigned, Frac: Unsigned> Debug for ArbFixedU<Size, Frac>
+where 
+Frac: LeEqU128,
+Size: LeEqU128 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "ArbFixedU<Size={}, Frac={}> {:?}", 
+               Size::U32, Frac::U32, self.parts)
     }
 }
 
