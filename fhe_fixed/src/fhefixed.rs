@@ -11,7 +11,7 @@ use fixed::traits::{Fixed, FixedUnsigned};
 use fixed::types::U10F6;
 use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
 use tfhe::integer::prelude::ServerKeyDefaultCMux;
-use tfhe::FheBool;
+use tfhe::{FheBool, MatchValues};
 use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U16, U6, U8, U2};
 use fixed::{traits::ToFixed, types::U8F8};
 use tfhe::shortint::{ClassicPBSParameters, Ciphertext};
@@ -253,6 +253,7 @@ impl FixedServerKey {
                     .extend_radix_with_trivial_zero_blocks_msb(&mut inner, 1);
                 self.key.unchecked_add_parallelized(&tmp, &tmp)
             };
+            print_if_trivial(c);
             let ilog2 = self.key.smart_ilog2_parallelized(&mut tmp_inner);
             let mut ilog4: Cipher = self.key.scalar_right_shift_parallelized(&ilog2, 1);
             self.key.smart_scalar_add_assign_parallelized(&mut ilog4, 1);
@@ -274,11 +275,36 @@ impl FixedServerKey {
                 (&mut three_inner, num_blocks);
             
             let mut three: T = T::new(three_inner, new_size, new_frac);
-            
-            // TODO the first 5 iterations (which are not necessarily quadratically convergent)
-            // should be replaced with a self.key.smart_match_value_parallelized(ct, matches);
-            // That is, we should look up the first r_k from a table
+            let is_power_of_four = self.key.
+                smart_scalar_eq_parallelized(x_k.inner_mut(), 1 << (new_size-4));
+            println!();
+            println!("x_k:");
+            print_if_trivial(&x_k);
+            println!("r_k:");
+            print_if_trivial(&r_k);
+            // the first 5 iterations (which are not necessarily quadratically convergent)
+            // are replaced with a self.key.smart_match_value_parallelized(ct, matches);
+            // That is, we look up the first m_k from a table
+            let mut m_0 = self.sqrt_first_bits(&mut x_k);
+            println!("m_0:");
+            print_if_trivial(&m_0);
+
+            propagate_if_needed_parallelized(&mut [m_0.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
+                rayon::join(
+                    || {
+                        let mut m_0_sqr = self.unchecked_mul(&m_0, &m_0);
+                        propagate_if_needed_parallelized(&mut [m_0_sqr.inner_mut()], &self.key);
+                        x_k = self.unchecked_mul(&x_k, &m_0_sqr);
+                    },
+                    || r_k = self.unchecked_mul(&r_k, &m_0),
+                );
+
             for _ in 0..iters {
+                println!();
+                println!("x_k:");
+                print_if_trivial(&x_k);
+                println!("r_k:");
+                print_if_trivial(&r_k);
                 // We know that three always has empty carries, it doesn't need to be propagated
                 if self.key.is_sub_possible(three.inner(), x_k.inner()).is_err() {
                     self.key.full_propagate_parallelized(x_k.inner_mut());
@@ -287,6 +313,8 @@ impl FixedServerKey {
                 
                 self.key.scalar_right_shift_assign_parallelized(m_k.inner_mut(), 1);
                 
+                println!("m_k:");
+                print_if_trivial(&m_k);
                 propagate_if_needed_parallelized(&mut [m_k.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
                 rayon::join(
                     || {
@@ -299,29 +327,59 @@ impl FixedServerKey {
             }
             let blocks_to_drain = ((c.size() + c.frac() % 2 - c.frac()) >> 1) as usize;
             let blocks_to_add = num_blocks + 1 - blocks_to_drain as usize;
-            let mut result_inner = r_k.into_inner();
+            let trivial_half_inner: Cipher =
+                self.key.create_trivial_radix(1<<new_size-3, num_blocks+1);
+            let mut result_inner = self.key.select_parallelized
+            (&is_power_of_four, &trivial_half_inner, r_k.inner());
+            //let mut result_inner = r_k.into_inner();
+            print_if_trivial(&T::new(result_inner.clone(), c.size(), c.frac()));
             self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut result_inner, blocks_to_add);
 
             self.key.smart_left_shift_assign_parallelized(&mut result_inner, &mut ilog4);
             self.key.scalar_right_shift_assign_parallelized(&mut result_inner, (c.frac()+1) >> 1 - c.frac() % 2);
             let mut result_blocks = result_inner.into_blocks();
             result_blocks.drain(0..blocks_to_drain);
-            T::new(Cipher::from_blocks(result_blocks), c.size(), c.frac())
-        }
+            let result = T::new(Cipher::from_blocks(result_blocks), c.size(), c.frac());
+            print_if_trivial(&result);
 
-        /*let mut x_k = x_scaled;
-        let mut r_k = x_scaled;
-        
-        let three = F::from_num(3);
-        for _ in 0..iters {
-            let m_k = three.wrapping_sub(x_k).shr(1);
-            
-            
-            let m_k_sqr = m_k.wrapping_mul(m_k);
-            x_k = x_k.wrapping_mul(m_k_sqr);
-            
-            r_k = r_k.wrapping_mul(m_k);
-        } */
+
+            result
+        }
+    }
+
+    fn sqrt_first_bits<T: FixedCiphertext>(&self, c: &mut T) -> T {
+        let len = c.inner().blocks().len();
+        let bits_for_guessing: Vec<Ciphertext> = 
+            vec![c.inner().blocks()[len-3].clone(), c.inner().blocks()[len-2].clone()];
+
+        let matches: MatchValues<u64> = MatchValues::new(vec![
+            (4, 7<<4),
+            (5, 25<<2),
+            (6, 23<<2),
+            (7, 21<<2),
+            (8, 5<<4),
+            (9, 5<<4),
+            (10, 71),
+            (11, 71),
+            (12, 1<<6),
+            (13, 1<<6),
+            (14, 1<<6),
+            (15, 1<<6),
+        ]).unwrap();
+        print_if_trivial(&T::new(Cipher::from_blocks(bits_for_guessing.clone()), 4,0));
+        let (mut guessed_bits, _) =
+            self.key.unchecked_match_value_parallelized(&Cipher::from_blocks(bits_for_guessing), &matches);
+        self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut guessed_bits, ((c.size()>>1) - 4) as usize);
+        T::new(guessed_bits, c.size(), c.frac())
+    }
+}
+
+pub(crate) fn print_if_trivial<T: FixedCiphertext>(c: &T) {
+    if c.inner().is_trivial() {
+        let a: u32 = c.inner().decrypt_trivial().unwrap();
+        println!("Size: {}, Frac: {}, Bits:", c.size(), c.frac());
+        println!("{:018b}", a);
+        println!("{}", a);
     }
 }
 
@@ -353,7 +411,7 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_sqrt(&mut self, key: &SKey) -> Self;
     fn smart_sqrt_goldschmidt(&mut self, iters: u32, key: &SKey) -> Self;
     fn smart_sqrt_guess_block(&mut self, key: &SKey) -> Self;
-    fn smart_neg(&self, key: &SKey) -> Self;
+    fn smart_neg(&mut self, key: &SKey) -> Self;
     fn smart_abs(&self, key: &SKey) -> Self;
     // Roundings
     fn smart_floor(&mut self, key: &SKey) -> Self;
@@ -377,9 +435,11 @@ pub trait FheFixed<AF, CKey, SKey>
     /// that has a bitwise representation identical to the given encrypted integer.
     fn from_bits(bits: Cipher, key: &SKey) -> Self;
 
+    fn encrypt_from_bits(bits: Vec<u64>, key: &CKey) -> Self;
     fn encrypt<T>(clear: T, key: &CKey) -> Self
         where AF: From<T>;
-    fn encrypt_from_bits(bits: Vec<u64>, key: &CKey) -> Self;
+    fn encrypt_trivial<T>(clear: T, key: &SKey) -> Self
+        where AF: From<T>;
 
     fn decrypt(&self, key: &FixedClientKey) -> AF;
 }
@@ -500,7 +560,7 @@ Frac: Unsigned + Send + Sync,
         inner
     }
     fn smart_sqrt(&mut self, key: &FixedServerKey) -> Self {
-        self.smart_sqrt_goldschmidt(6, key)
+        self.smart_sqrt_goldschmidt(4, key)
     }
 
     fn smart_sqrt_guess_block(&mut self, key: &FixedServerKey) -> Self {
@@ -617,10 +677,19 @@ Frac: Unsigned + Send + Sync,
         Self::from_bits(result_inner, key)
     }
 
-    fn smart_neg(&self, key: &FixedServerKey) -> Self {
-        let _ = key;
-        panic!("Cannot negate an unsigned number!")
+    fn smart_neg(&mut self, key: &FixedServerKey) -> Self {
+        // This is needed because the builting smart_neg_parallelized does not work with trivial encryptions
+        /*if self.inner.is_trivial() {
+            let clear_inner: u64 = self.inner.decrypt_trivial().unwrap();
+            Self::from_bits(key.key.create_trivial_radix((1<<Size::U64) - clear_inner,
+            Size::USIZE>>1), key)
+        } else*/ {
+            let res_inner = key.key.smart_neg_parallelized(&mut self.inner);
+            Self::from_bits(res_inner, key)
+        }
+
     }
+    
     fn smart_abs(&self, key: &FixedServerKey) -> Self {
         let _ = key;
         self.clone()
@@ -718,6 +787,32 @@ Frac: Unsigned + Send + Sync,
         let blocks = fix.parts.iter().flat_map(extract_bits).
         take(Size::USIZE >> 1).map(|x| {
             key.key.encrypt_one_block(x as u64)
+        }).collect::<Vec<Ciphertext>>();
+        
+        FheFixedU {
+            inner: Cipher::from_blocks(blocks),
+            phantom1: PhantomData,
+            phantom2: PhantomData,
+        }
+    }
+
+    fn encrypt_trivial<T>(clear: T, key: &FixedServerKey) -> Self
+    where ArbFixedU<Size, Frac>: From<T>{
+        let fix: ArbFixedU<Size, Frac> = ArbFixedU::from(clear);
+        /*this encrypts 1 block
+        key.key.encrypt_one_block(to_be_encrypted (0,1,2 or 3));*/
+
+        let extract_bits = |x:&u64| {
+            let mut result = [0u8; 32];
+            for i in 0..32 {
+                result[i] = ((x >> (2 * i)) & 0b11) as u8;
+            }
+            result
+        };
+
+        let blocks = fix.parts.iter().flat_map(extract_bits).
+        take(Size::USIZE >> 1).map(|x| {
+            key.key.key.create_trivial(x as u64)
         }).collect::<Vec<Ciphertext>>();
         
         FheFixedU {
