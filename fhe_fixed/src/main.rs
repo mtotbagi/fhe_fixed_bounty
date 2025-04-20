@@ -24,7 +24,7 @@ use crate::fhefixed::*;
 
 fn main() {
     test_func_manual!(U16, U5, ck, server_key,          // Type of the operation, and key names
-        a.smart_sqrt_guess_block(&server_key),               // The operation to test
+        a.smart_sqrt_guess_bit(&server_key),               // The operation to test
         U11F5::from_num(clear_a).wrapping_sqrt(),               // A ground truth to compare to, optional
         | clear_a, a |                      // The clear and encrypted name(s) of relevant variables
         // iters                                        // The name(s) of variables that are only used as clear
