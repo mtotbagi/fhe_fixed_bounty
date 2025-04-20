@@ -235,7 +235,7 @@ mod tests {
         };
     }
 
-    test_unary_op_exhaustive_u8!(smart_sqrt_guess_block, wrapping_sqrt,
+    test_unary_op_exhaustive_u8!(smart_sqrt_guess_bit, wrapping_sqrt,
         (test_sqrt_exhaustive_u0f8, U8),
         (test_sqrt_exhaustive_u1f7, U7),
         (test_sqrt_exhaustive_u2f6, U6),
