@@ -33,6 +33,49 @@ pub struct FheFixedU<Size, Frac> {
     phantom2: PhantomData<Frac>
 }
 
+impl<Size, Frac> FixedCiphertext for FheFixedU<Size, Frac> where
+Size: FixedSize<Frac>,
+Frac: FixedFrac {
+    const IS_SIGNED: bool = false;
+
+    fn inner(&self) -> &Cipher {
+        &self.inner
+    }
+
+    fn into_inner(self) -> Cipher {
+        self.inner
+    }
+    
+    fn inner_mut(&mut self) -> &mut Cipher {
+        &mut self.inner
+    }
+
+    fn size(&self) -> u32 {
+        Size::U32
+    }
+
+    fn frac(&self) -> u32 {
+        Frac::U32
+    }
+
+    fn new(inner: Cipher, size: u32, frac: u32) -> Self {
+        // TODO remove these params when we remove unsafe fixed
+        _ = size;
+        _ = frac;
+        Self::new(inner)
+    }
+
+    fn bits_in_block(&self) -> u32 {
+        let modulus = self.inner.blocks()[0].message_modulus.0;
+        let log2 = modulus.ilog2();
+        if 2u64.pow(log2) == modulus {
+            log2
+        } else {
+            log2 + 1
+        }
+    }
+}
+
 impl<Size, Frac> FheFixedU<Size, Frac> {
     pub fn new(inner: Cipher) -> FheFixedU<Size, Frac> {
         FheFixedU { inner, phantom1: PhantomData, phantom2: PhantomData }
@@ -54,7 +97,7 @@ pub trait FixedCiphertext: Clone + Sync + Send{
     fn size(&self) -> u32;
     fn frac(&self) -> u32;
     fn new(inner: Cipher, size: u32, frac: u32) -> Self;
-    fn block_size(&self) -> u32;
+    fn bits_in_block(&self) -> u32;
 }
 
 impl FixedCiphertext for InnerFheFixedU {
@@ -86,7 +129,7 @@ impl FixedCiphertext for InnerFheFixedU {
         Self { inner, size, frac }
     }
 
-    fn block_size(&self) -> u32 {
+    fn bits_in_block(&self) -> u32 {
         assert!(self.size > 0);
         let modulus = self.inner.blocks()[0].message_modulus.0;
         let log2 = modulus.ilog2();
