@@ -12,6 +12,7 @@ use fixed::types::U10F6;
 use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
 use tfhe::integer::prelude::ServerKeyDefaultCMux;
 use tfhe::{FheBool, MatchValues};
+use tfhe::shortint::parameters::Degree;
 use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U16, U6, U8, U2};
 use fixed::{traits::ToFixed, types::U8F8};
 use tfhe::shortint::{ClassicPBSParameters, Ciphertext};
@@ -559,7 +560,7 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_ilog2(&mut self, key: &SKey) -> SignedRadixCiphertext;
     fn smart_sqrt(&mut self, key: &SKey) -> Self;
     fn smart_sqrt_goldschmidt(&mut self, iters: u32, key: &SKey) -> Self;
-    fn smart_sqrt_guess_block(&mut self, key: &SKey) -> Self;
+    fn smart_sqrt_guess_bit(&mut self, key: &SKey) -> Self;
     fn smart_neg(&mut self, key: &SKey) -> Self;
     fn smart_abs(&self, key: &SKey) -> Self;
     // Roundings
@@ -712,109 +713,142 @@ Frac: Unsigned + Send + Sync,
         self.smart_sqrt_goldschmidt(4, key)
     }
 
-    fn smart_sqrt_guess_block(&mut self, key: &FixedServerKey) -> Self {
-        // Pseudo code, unrefined, for msg_mod = 4:
-        // We know that all bits greater than FRAC + (SIZE - FRAC) / 2 are 0, since their square is greater than maxvalue
-        // so current guess is 0000xxxx.yyyyyyyy (in case of U8F8)
-        // loop
-        //      guess the 3 options (b1=11, b2=10, b3=01) for most sig. unknown block (also b4=00)
-        //      compute in parallel
-        //          sq1, sq2, sq3 = (current_guess+b1)^2, (current_guess+b2)^2, (current_guess+b3)^2
-        //      evaluate in parallel
-        //          r1, r2 = sq1<=num?b1:b2, sq3<=num?b3:b4
-        //      evaluate
-        //          res = sq2<=num?r1:r2
-        //      current_guess += res
+    fn smart_sqrt_guess_bit(&mut self, key: &FixedServerKey) -> Self {
+        // Pseudo code of the algorithm used:
+        // sqrt(V)
+        // V = V.clone()                    -- we use this as a remainder, but don't change the input
+        // R = 0                            -- initialise the result/root as 0
+        // B = max_possible_bit(V.len())    -- we find the maximum possible bit in the root
+        //                                      all bits larger than this, have a square larger
+        //                                      than the max value V could take
+        // BS = square_of(B)                -- we find the square of B via a shift
+        //
+        // while B > 0
+        //      if V >= 2*B*R + BS          -- since (R+B)^2 = R^2 + 2*B*R + BS
+        //          R += B                  -- (R+B)^2 was less then original(V)
+        //                                      here we essentially set one of the result bits
+        //          V -= 2*B*R + BS         -- update V to be original(V) - (R+B)^2
+        //
+        //      B >>= 1
+        //      BS >>= 2
 
-        //needed for the unchecked ge later on
+        //needed since this is a smart function, also since bivariate lookup would drop carries
         if !self.inner.block_carries_are_empty() {
             key.key.full_propagate_parallelized(&mut self.inner);
         }
-        // initialise the result as a trivial 0
-        let mut res = Self::new(key.key.create_trivial_zero_radix(self.inner.blocks().len()));
 
-        // The first few blocks are always 0, since their square would be too large. The number of such bits is the half
-        // of the integer bits rounded down, and the number of blocks is the half of the bits rounded down.
-        // TODO this only supports blocksize 2 -> chaanged the rightshift from 2 to msg modulus, now it is good, but needs new explanation
-        let i_blocks = (Size::USIZE - Frac::USIZE) >> (key.key.message_modulus().0.ilog2() - 1);
-        let blocks_with_frac = (Frac::USIZE + key.key.message_modulus().0.ilog2() as usize - 1) >> (key.key.message_modulus().0.ilog2() - 1);
-        let max_nonzero_block_idx = i_blocks / 2 + blocks_with_frac;
-
-        //for comparisons we will need a longer version of self.inner
-        let wide_self = key.key.extend_radix_with_trivial_zero_blocks_lsb(&self.inner, blocks_with_frac);
-
-        // all the possible blocks we could have
-        let guess_blocks = (0..key.key.message_modulus().0).into_par_iter().map(
-            |clear_guess| {
-                //encrypt the guess for the block 
-                key.key.create_trivial_radix::<u32, Cipher>(clear_guess as u32, 1usize).clone()             
-            }
-        ).collect::<Vec<Cipher>>();
+        // some helper numbers for ease of use later
+        let log_modulus_usize = key.key.message_modulus().0.ilog2() as usize;               // number of bits in msg
+        let blocks_with_frac = (Frac::USIZE + log_modulus_usize - 1) / log_modulus_usize;   // number of blocks containing a fractional bit
+        let wide_block_size = self.inner.blocks().len() + blocks_with_frac;                 // the size of the wide versions in blocks (widness when we have fractional bits)
+        let i_bits = Size::USIZE - Frac::USIZE;                                             // the number of integer (non-frac) bits
+        let used_i_bits = (i_bits+1) / 2;                                                   // the number of integer bits that could be 1
+        let least_used_bit_idx = blocks_with_frac * log_modulus_usize;                      // the index of the first non-wide bit (so the least bit that is relevant to the result)
+        let largest_used_bit_idx = least_used_bit_idx + Frac::USIZE + used_i_bits - 1;      // the inex of the most significant bit that could be set
         
-        for idx in (0..max_nonzero_block_idx).rev() {
-            let blocks_to_drain = std::cmp::min(blocks_with_frac, idx * 2);
+        // the wide remainder, we will decrease this each iteration if it was still larger than the current square
+        let mut wide_remainder = key.key.extend_radix_with_trivial_zero_blocks_lsb(&self.inner, blocks_with_frac);
+        let mut wide_result: Cipher = key.key.create_trivial_zero_radix(wide_block_size); // only needed for ease of indexing later
 
-            // we only need a restricted part of self for the comparison, so drain excess
-            let mut blocks = wide_self.clone().into_blocks();
-            blocks.drain(0..blocks_to_drain);
-            let narrow_self = Cipher::from_blocks(blocks);
+        // the single guess bit, starting at its largest value
+        let mut guess_radix: Cipher = key.key.create_trivial_radix(1, wide_block_size);
+        key.key.unchecked_scalar_left_shift_assign_parallelized(&mut guess_radix, largest_used_bit_idx);
+        
+        // the square of the guess bit is usually shifted left, unless there are no integer bits at all, in which case guess is 1/2, so square is 1/4
+        let mut guess_square = 
+            if used_i_bits > 0 {
+                key.key.unchecked_scalar_left_shift_parallelized(&guess_radix, used_i_bits-1)
+            } else { // used_i_bits is 0
+                key.key.unchecked_scalar_right_shift_parallelized(&guess_radix, 1)
+            };
+        let mut sqr_bit_idx = largest_used_bit_idx + used_i_bits - 1; // we also store the index of the square bit for ease of use later
 
-            let mut guess_blocks = guess_blocks.clone();
-            let mut wide_squares = (1..key.key.message_modulus().0 as usize).into_par_iter().map(
-                |clear_guess| {
-                    // clone res, and make it the correct length for squaring
-                    let mut res_plus_guess = res.inner.clone();
-                    key.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut res_plus_guess, blocks_with_frac);
-                    
-                    // assign guess block, so now we have res+guess, with the guessed block in the correct position
-                    res_plus_guess.blocks_mut()[idx] = guess_blocks[clear_guess].blocks()[0].clone();
-                    
-                    // square the sum
-                    smart_sqr_assign(&mut res_plus_guess, &key.key);
+        // two lookup tables used to zero out half the calculations depending on `if V > 2*B*R + BS` (represented by an overflow)
+        let zero_out_if_overflow_lut = 
+            key.key.key.generate_lookup_table_bivariate(
+                |block, overflow| if overflow == 0 { block } else { 0 }
+            );
+        let zero_out_if_no_overflow_lut = 
+            key.key.key.generate_lookup_table_bivariate(
+                |block, overflow| if overflow != 0 { block } else { 0 }
+            );
+        
+        // main loop, iterates through the index of every result bit that could be set
+        for guess_bit_idx in (least_used_bit_idx..=largest_used_bit_idx).rev() {
+            // we assign some more helper vars
+            let guess_block_idx = guess_bit_idx / log_modulus_usize;
+            let sqr_block_idx_wide = sqr_bit_idx / log_modulus_usize;
+            let shift_amount_signed = guess_bit_idx as isize - least_used_bit_idx as isize - Frac::USIZE as isize + 1;
+            let ls_used_bit_idx = std::cmp::min(guess_bit_idx as isize + shift_amount_signed,std::cmp::min(sqr_bit_idx, guess_bit_idx) as isize) as usize;
+            let ls_used_block_idx = ls_used_bit_idx / log_modulus_usize;            
+            let sqr_block_idx_narrow = sqr_block_idx_wide - ls_used_block_idx;
 
-                    //we have to propagate before draining/shifting
-                    if !res_plus_guess.block_carries_are_empty() {
-                        key.key.full_propagate_parallelized(&mut res_plus_guess);
-                    }
-
-                    // This may only be needed when modulus is > 2 TODO investigate
-                    if Frac::U8 % 2 != 0 {
-                        // bcs of above, this is fine as a default
-                        key.key.scalar_left_shift_assign_parallelized(&mut res_plus_guess, 1);
-                    }
-
-                    // drain excess blocks, and return the needed part
-                    let mut blocks = res_plus_guess.into_blocks();
-                    blocks.drain(0..blocks_to_drain);
-                    Cipher::from_blocks(blocks)
-                }
-            ).collect::<Vec<Cipher>>();
+            // in each loop we only operate on the sub-parts of the ciphers that could be non-zero, so we drop unneeded parts
+            let mut narrow_remainder_old = Cipher::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
+            let mut narrow_result_shifted = Cipher::from(wide_result.blocks()[ls_used_block_idx..].to_vec());
+            let mut sqr_block = guess_square.blocks()[sqr_block_idx_wide].clone();  // it is sufficient to store the guess and its square in a single block
+            let mut guess_block = guess_radix.blocks()[guess_block_idx].clone();    // they are created as entire ciphers, since there is no convenient block-rotate
             
-            //we can eleminate half of the remaining guesses at a time, for now all are possible
-            let mut iter_size = guess_blocks.len();
-            
-            // evaluate which guess is the correct one this needs to be some kind of pyramid scheme TODO
-            while iter_size > 1 {
-                iter_size >>= 1;
-                guess_blocks = (0..iter_size).into_par_iter().map(
-                    |i| {
-                        let keep_smaller = key.key.unchecked_ge_parallelized(&narrow_self, &wide_squares[i*2]);
-                        key.key.if_then_else_parallelized(&keep_smaller, &guess_blocks[i * 2 + 1], &guess_blocks[i * 2])
-                    }
-                ).collect::<Vec<Cipher>>();
+            // this does 2*R*B, since 2*B is still a (clear) power of two, we can just shift R by a scalar
+            // for some reason we need to ensure that it has the correct degrees, else the subtraction will not work
+            narrow_result_shifted = unchecked_signed_scalar_left_shift_parallelized(&key.key, &narrow_result_shifted, shift_amount_signed);
 
-                //remove all even indicies as we just did the operation on them, they aren't needed anymore
-                for i in (0..iter_size).rev() {
-                    wide_squares.remove(i*2);
+            //calculate 2*R*B + BS, again maintaining a correct degree
+            // note that this can never result in carries, since least_bit_of(R) > B therefore least_bit_of(2*R*B) > BS
+            // furthermore there can also never be an overflow, since either R=0 so 2*R*B + BS = BS, or 
+            // 2*B <= R, so 2*B*R <= R^2 <= original(V) <= MAX_VALUE and since there is no carry from the addition, this gives no overflow either
+            sqr_block.degree = Degree::new(1 << (sqr_bit_idx % log_modulus_usize));
+            key.key.key.unchecked_add_assign(&mut narrow_result_shifted.blocks_mut()[sqr_block_idx_narrow], &sqr_block);
+
+            // calculate V - (2*R*B + BS) and V >= (2*R*B + BS)      (the new value of V, and the guard of the if-stmt)
+            let (mut narrow_remainder_new, overflow_happened) = key.key.unchecked_unsigned_overflowing_sub_parallelized(&narrow_remainder_old, &narrow_result_shifted);
+            let overflow_happened = overflow_happened.into_raw_parts();
+
+            // here we evaluate which branch of the if was taken, by zeroing out the unused branch (the second branch is just the identity)
+            rayon::join(
+                || {
+                    // compute wether the next bit should be set to 0 or 1, set the degree needed for the subtraction, and set the bit in the result
+                    key.key.key.unchecked_apply_lookup_table_bivariate_assign(&mut guess_block, &overflow_happened, &zero_out_if_overflow_lut);
+                    guess_block.degree = Degree::new(1 << (guess_bit_idx % log_modulus_usize));
+                    key.key.key.unchecked_add_assign(&mut wide_result.blocks_mut()[guess_block_idx], &guess_block);
+                }, || {
+                    // calculate the new value of V
+                    rayon::join(
+                        || {
+                            //keep the old if overflowed (V < 2*R*B + BS) -> zero if not overflow
+                            narrow_remainder_old.blocks_mut().par_iter_mut().for_each( 
+                                |block|
+                                key.key.key.unchecked_apply_lookup_table_bivariate_assign(block, &overflow_happened, &zero_out_if_no_overflow_lut)
+                            );
+                        }, || {
+                            //keep the new if it didn't overflow (V >= 2*R*B + BS) -> zero if overflow
+                            narrow_remainder_new.blocks_mut().par_iter_mut().for_each(
+                                |block| {
+                                    key.key.key.unchecked_apply_lookup_table_bivariate_assign(block, &overflow_happened, &zero_out_if_overflow_lut);
+                                    block.degree = Degree::new(0); // the degree of the remainder doesn't matter, so just keep it in check for good measure
+                                }
+                            );
+                        }
+                    );
+                    // one of the two is 0, so the sum is the new value of V, also set this new value
+                    let narrow_remainder_final = key.key.unchecked_add_parallelized(&narrow_remainder_new, &narrow_remainder_old);
+                    wide_remainder.blocks_mut()[ls_used_block_idx..]
+                        .par_iter_mut()
+                        .zip(narrow_remainder_final.blocks().par_iter())
+                        .for_each(|(remainder_block, new_value)| {
+                            remainder_block.clone_from(new_value);
+                    });
                 }
-            }
+            );
 
-            // only one guess left, it is the right one
-            res.inner.blocks_mut()[idx] = guess_blocks[0].blocks()[0].clone();
+            // compute B >>= 1 and BS >>= 2, keeping track of the indicies
+            key.key.unchecked_scalar_right_shift_assign_parallelized(&mut guess_radix, 1);
+            key.key.unchecked_scalar_right_shift_assign_parallelized(&mut guess_square, 2);
+            sqr_bit_idx -= 2;
         }
-        res
+        // discard unused part of the result, and return the rest
+        Self::new(Cipher::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec()))
     }
-
     
     fn smart_sqrt_goldschmidt(&mut self, iters: u32, key: &FixedServerKey) -> Self {
         let result_inner = key
@@ -1209,6 +1243,65 @@ where
     } else {
         message_part_terms_generator.collect::<Vec<_>>()
     }
+}
+
+
+/// Performs a left shift by scalar amount on the input ciphertext.
+/// 
+/// If the scalar is negative it will perfom a right shift instead.
+/// 
+/// Will give the degrees the correct value. \
+/// 
+/// ## Warning
+/// This only works on unsigned numbers right now, may change in the future
+fn unchecked_signed_scalar_left_shift_parallelized<T>(key: &ServerKey, ct: &T, scalar:isize) -> T
+where
+    T: IntegerRadixCiphertext,
+{
+    // bunch of helper values for ease of use
+    let mut result = ct.clone();
+    let shift = scalar.abs() as usize;
+    let modulus = key.message_modulus().0 as u64;
+    let log_modulus = key.message_modulus().0.ilog2() as usize;
+    let blocks_shifted = shift / log_modulus;
+    let bits_shifted = shift % log_modulus;
+
+    // save the old degrees, we do our own calculation on them
+    let mut degrees = ct.blocks().iter().map(|block| block.degree.get()).collect::<Vec<u64>>();
+    
+    // if scalar is positive, it is a left shift, otherwise a right shift
+    if scalar >= 0 {
+        // use built-in shift for the cipher
+        key.unchecked_scalar_left_shift_assign_parallelized(&mut result, shift);
+        
+        // numbering of blocks is backwards in this library, so we do a right rotate, by the amount of full blocks shifted
+        degrees.rotate_right(blocks_shifted);
+        //since there is no vec_shift, we manually set the start to 0 after a rotate
+        for i in 0..blocks_shifted {
+            degrees[i] = 0;
+        }
+
+        // we do a left shift on each block, propagating the bits that get moved between blocks
+        let mut carry = 0u64;
+        for i in 0..degrees.len() {
+            (carry, degrees[i]) = ((degrees[i] << bits_shifted) >> log_modulus, (degrees[i] << bits_shifted) % modulus + carry);
+        }
+    } else { // same as left shift, but in the other direction
+        key.unchecked_scalar_right_shift_assign_parallelized(&mut result, shift);
+        
+        degrees.rotate_left(blocks_shifted);
+        for i in degrees.len()-blocks_shifted..degrees.len() {
+            degrees[i] = 0;
+        }
+        let mut carry = 0u64;
+        for i in (0..degrees.len()).rev() {
+            (carry, degrees[i]) = (((degrees[i] << log_modulus) >> bits_shifted) % modulus, (degrees[i] >> bits_shifted) + carry);
+        }
+    }
+
+    // we overwrite the (potentially faulty) degrees of the built-in by our own (correct) degrees 
+    result.blocks_mut().iter_mut().zip(degrees.into_iter()).for_each(|(block, deg)| block.degree = Degree::new(deg));
+    result
 }
 
 pub trait Even {}
