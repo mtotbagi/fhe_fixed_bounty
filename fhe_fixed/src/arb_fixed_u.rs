@@ -7,7 +7,7 @@ use fixed::traits::FixedUnsigned;
 use fixed::types::extra::LeEqU128;
 use fixed::types::U10F6;
 use fixed::FixedU128;
-use crate::fhefixed::Even;
+use crate::size_frac::{FixedFrac, FixedSize};
 use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
 use typenum::{Bit, Cmp, Diff, IsGreater, PowerOfTwo, Same, True, UInt, Unsigned, U10, U1000, U16, U6, U8, U2,U0, IsGreaterOrEqual};
 use fixed::{traits::ToFixed, types::U8F8};
@@ -24,14 +24,8 @@ pub struct ArbFixedU<Size, Frac> {
 }
 
 impl<Size, Frac> ArbFixedU<Size, Frac> where
-Size: Unsigned +
-      Cmp<Frac> +
-      typenum::private::IsGreaterOrEqualPrivate<Frac, <Size as typenum::Cmp<Frac>>::Output> +
-      Even + Cmp<U2> +
-      typenum::private::IsGreaterOrEqualPrivate<U2, <Size as typenum::Cmp<U2>>::Output>,
-Frac: Unsigned,
-<Size as IsGreaterOrEqual<Frac>>::Output: Same<True>,
-<Size as IsGreaterOrEqual<U2>>::Output: Same<True>
+Size: FixedSize<Frac>,
+Frac: FixedFrac
 {
     // Does not check whether bits length is appropriate
     // If you want that use from_bits instead
@@ -88,14 +82,8 @@ where Size: LeEqU128
    (Which is basically every builtin numeric type, and every fixed type) */
 impl<T, Size: Unsigned, Frac: Unsigned> From<T> for ArbFixedU<Size, Frac> where
 T: ToFixed,
-Size: Unsigned +
-      Cmp<Frac> +
-      typenum::private::IsGreaterOrEqualPrivate<Frac, <Size as typenum::Cmp<Frac>>::Output> +
-      Even + Cmp<U2> +
-      typenum::private::IsGreaterOrEqualPrivate<U2, <Size as typenum::Cmp<U2>>::Output>,
-Frac: Unsigned + LeEqU128,
-<Size as IsGreaterOrEqual<Frac>>::Output: Same<True>,
-<Size as IsGreaterOrEqual<U2>>::Output: Same<True>,
+Size: FixedSize<Frac> + LeEqU128,
+Frac: FixedFrac + LeEqU128,
 {
     fn from(f: T) -> Self {
         // get the bits we need

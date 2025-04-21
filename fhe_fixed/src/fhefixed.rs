@@ -23,6 +23,8 @@ pub const PARAM: ClassicPBSParameters = tfhe::shortint::parameters::PARAM_MESSAG
 pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint::Ciphertext>;
 
 use crate::arb_fixed_u::ArbFixedU;
+use crate::size_frac::{FixedFrac, FixedSize};
+
 
 #[derive(Clone)]
 pub struct FheFixedU<Size, Frac> {
@@ -388,9 +390,6 @@ impl FixedServerKey {
         result
     }
 
-
- 
-
     fn sqrt_first_bits<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let len = c.inner().blocks().len();
         let bits_for_guessing: Vec<Ciphertext> = 
@@ -601,15 +600,8 @@ Size >= Frac
 Size is even and at least 2*/
 impl<Size, Frac> FheFixed<ArbFixedU<Size, Frac>, FixedClientKey, FixedServerKey> for FheFixedU<Size, Frac> 
 where
-Size: Unsigned +
-      Cmp<Frac> +
-      typenum::private::IsGreaterOrEqualPrivate<Frac, <Size as typenum::Cmp<Frac>>::Output> +
-      Even + Cmp<U2> +
-      typenum::private::IsGreaterOrEqualPrivate<U2, <Size as typenum::Cmp<U2>>::Output> +
-      Send + Sync,
-Frac: Unsigned + Send + Sync,
-<Size as IsGreaterOrEqual<Frac>>::Output: Same<True>,
-<Size as IsGreaterOrEqual<U2>>::Output: Same<True>
+Size: FixedSize<Frac>,
+Frac: FixedFrac
 {
     fn smart_add(&self, rhs: &mut Self, key: &FixedServerKey) -> Self {
         let mut result_value = self.inner.clone();
@@ -1304,6 +1296,3 @@ where
     result
 }
 
-pub trait Even {}
-impl<U: Unsigned> Even for UInt<U, B0> {}
-impl Even for U0 {}
