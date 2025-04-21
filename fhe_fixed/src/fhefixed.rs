@@ -372,13 +372,119 @@ impl FixedServerKey {
         self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut guessed_bits, ((c.size()>>1) - 4) as usize);
         T::new(guessed_bits, c.size(), c.frac())
     }
+
+       
+    pub(crate) fn wide_sqr<T: FixedCiphertext>(&self, c: &mut T) -> T {
+        if !c.inner().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.inner_mut());
+        }
+        let wide_c = self.widen(c, c.size()*2, c.frac()*2);
+        self.unchecked_sqr(&wide_c)
+    }
+
+    // Shrinks the input to the given size and frac. Does NOT return with clear carries
+    pub(crate) fn shrink<T: FixedCiphertext>(&self, c: &T, new_size: u32, new_frac: u32) -> T {
+        assert!(new_size >= new_frac);
+        assert!(new_size - new_frac <= c.size() - c.frac());
+        assert!(new_frac <= c.frac());
+        assert!(new_size % 2 == 0);
+        assert!(c.size() % 2 == 0);
+
+        let frac_bits_to_remove: usize = (c.frac() - new_frac) as usize;
+        let start_blocks_to_remove = (frac_bits_to_remove+1) / 2 as usize;
+        let blocks_to_remove = ((c.size() - new_size) / 2) as usize;
+        let end_blocks_to_remove = blocks_to_remove - start_blocks_to_remove;
+
+        /*println!("{start_blocks_to_remove}");
+        println!("{end_blocks_to_remove}");
+        println!("{}", c.inner().blocks().len());*/
+
+        let mut new_c = c.clone();
+        if frac_bits_to_remove % 2 == 1 {
+            new_c = self.smart_double(&mut new_c);
+        }
+        propagate_if_needed_parallelized(&mut [new_c.inner_mut()], &self.key);
+        /*println!("shrink dbl");
+        print_if_trivial(&new_c);*/
+        let mut blocks = new_c.inner().clone().into_blocks();
+        let len = blocks.len();
+        blocks.drain(len - end_blocks_to_remove..);
+        blocks.drain(0..start_blocks_to_remove);
+        
+
+        let inner_res = Cipher::from_blocks(blocks);
+
+        let result = T::new(inner_res, new_size, new_frac);
+        /*println!("shrink result");
+        print_if_trivial(&result);*/
+        result
+    }
+
+    // Widens the input to the given size and frac. Does NOT return with clear carries 
+    pub(crate) fn widen<T: FixedCiphertext>(&self, c: &T, new_size: u32, new_frac: u32) -> T {
+        assert!(new_size >= new_frac);
+        assert!(new_size - new_frac >= c.size() - c.frac());
+        assert!(new_frac >= c.frac());
+        assert!(new_size % 2 == 0);
+        assert!(c.size() % 2 == 0);
+
+        let extra_frac_bits = new_frac - c.frac();
+        let extra_int_bits = new_size - new_frac - (c.size() - c.frac());
+
+        let mut inner = c.inner().clone();
+        self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
+            (&mut inner, (extra_frac_bits/2) as usize);
+        self.key.extend_radix_with_trivial_zero_blocks_msb_assign
+            (&mut inner, 
+((extra_int_bits+1)/2) as usize);
+
+        if extra_frac_bits % 2 == 1 {
+            if self.key.is_add_possible(&inner, &inner).is_err() {
+                self.key.full_propagate_parallelized(&mut inner);
+            }
+            inner = self.key.unchecked_add_parallelized(&inner, &inner);
+        }
+
+        T::new(inner, new_size, new_frac)
+    }
+
+    pub(crate) fn smart_double<T: FixedCiphertext>(&self, c: &mut T) -> T {
+        if self.key.is_add_possible(c.inner(), c.inner()).is_err() {
+            self.key.full_propagate_parallelized(c.inner_mut());
+        }
+        let result_inner: Cipher = self.key.unchecked_add_parallelized(c.inner(), c.inner());
+        T::new(result_inner, c.size(), c.frac())
+    }
+
+    fn smart_gt<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        self.key.smart_gt_parallelized(lhs.inner_mut(), rhs.inner_mut())
+    }
+
+    fn smart_lt<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        self.key.smart_lt_parallelized(lhs.inner_mut(), rhs.inner_mut())
+    }
+    
+    fn smart_ge<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        self.key.smart_ge_parallelized(lhs.inner_mut(), rhs.inner_mut())
+    }
+
+    fn select<T: FixedCiphertext>(&self, c: &BooleanBlock, lhs: &T, rhs: &T) -> T {
+        assert!(lhs.size() >= lhs.frac());
+        assert_eq!(lhs.size(), rhs.size());
+        assert_eq!(lhs.frac(), rhs.frac());
+        T::new(self.key.
+            select_parallelized(c, lhs.inner(), rhs.inner()),
+            lhs.size(), lhs.frac())
+    }
+
 }
 
 pub(crate) fn print_if_trivial<T: FixedCiphertext>(c: &T) {
     if c.inner().is_trivial() {
         let a: u32 = c.inner().decrypt_trivial().unwrap();
+        let size = c.size() as usize;
         println!("Size: {}, Frac: {}, Bits:", c.size(), c.frac());
-        println!("{:018b}", a);
+        println!("{:0size$b}", a);
         println!("{}", a);
     }
 }
