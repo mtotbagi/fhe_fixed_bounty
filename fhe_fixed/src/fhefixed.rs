@@ -214,138 +214,181 @@ impl FixedServerKey {
         if !c.inner().block_carries_are_empty() {
             self.key.full_propagate_parallelized(c.inner_mut());
         }
-        let num_blocks: usize = (c.size()/2) as usize;
-        let new_size=  c.size() + 2;
-        let new_frac = c.size();
+        let bits_in_block = self.key.message_modulus().0.ilog2();
+        assert_eq!(0, c.size() % bits_in_block);
+        let num_blocks: usize = (c.size()/bits_in_block) as usize;
         // We divide everything by 4^scale_factor,
         // in the end the result is multiplied with 2^scale_factor
         
-        /*println!("size: {}", c.size());
-        println!("frac: {}", c.frac());
-        println!("int_bits: {}", int_bits);
-        println!("blocks_to_add: {}", blocks_to_add);
-        println!("new_size: {}", new_size);
-        println!("new_frac: {}", new_frac);
-        println!("scale_factor: {}", scale_factor);*/
         let mut inner = c.inner().clone();
-
+        println!("input:");
+        print_if_trivial(c);
         if T::IS_SIGNED {
             let mut _signed_inner = self.key
             .cast_to_signed(inner, num_blocks + 1);
             todo!()
         }
         else {
-            // We will scale c into the range [0.25, 1) by shifting it with ilog4+1 blocks
-            // The ilog4 here means as a fixed point number, not as the inner integer representing it
-            // This is a bit messy because frac can be odd
-
-            // We would like to do the following: extend c.inner with size/2 blocks lsb
-            // (This too probably could be more efficient, but it is messy enough as it is)
-            // Blockshift with ilog4(c.inner)+1 blocks right (this is an encrypted shift)
-            // Cut of the unnecessary 0 blocks from the front
-            // Create a new InnerFheFixed with c.size() as it's frac
-            // But if c.frac() is odd, then this is shifting by 2^odd, which means we can't scale back
-            let mut tmp_inner: Cipher = if c.frac() % 2 == 0 {
-                inner.clone()
+            if c.frac() % bits_in_block != 0 {
+                let n = c.frac() % bits_in_block;
+                let mut wide_c = self.widen(c,
+                     c.size() + bits_in_block, c.frac() + bits_in_block - n);
+                
+                let wide_res = self.smart_sqrt_goldschmidt(&mut wide_c, iters);
+                
+                self.shrink(&wide_res, c.size(), c.frac())
+            }
+            // This is needed because else we don't have enough precision
+            else if c.frac() == c.size() {
+                let mut wide_c = self.widen(c,
+                    c.size() + bits_in_block, c.frac());
+                let wide_res = self.smart_sqrt_goldschmidt(&mut wide_c, iters);
+                self.shrink(&wide_res, c.size(), c.frac())
             }
             else {
-                let tmp: Cipher = self.key
-                    .extend_radix_with_trivial_zero_blocks_msb(&mut inner, 1);
-                self.key.unchecked_add_parallelized(&tmp, &tmp)
-            };
-            print_if_trivial(c);
-            let ilog2 = self.key.smart_ilog2_parallelized(&mut tmp_inner);
-            let mut ilog4: Cipher = self.key.scalar_right_shift_parallelized(&ilog2, 1);
-            self.key.smart_scalar_add_assign_parallelized(&mut ilog4, 1);
+                
+                let new_size=  c.size() + bits_in_block;
+                let new_frac = c.size();
+                // We will scale c into the range [0.25, 1) by shifting it with ilog4+1 blocks
+                // The ilog4 here means as a fixed point number, not as the inner integer representing it
+                // This is a bit messy because frac can be odd
 
-            self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
-                (&mut tmp_inner, num_blocks);
-            self.key.full_propagate_parallelized(&mut ilog4);
-            tmp_inner = self.key.smart_block_shift_left(&mut tmp_inner, &mut ilog4);
+                // We would like to do the following: extend c.inner with size/2 blocks lsb
+                // (This too probably could be more efficient, but it is messy enough as it is)
+                // Blockshift with ilog4(c.inner)+1 blocks right (this is an encrypted shift)
+                // Cut of the unnecessary 0 blocks from the front
+                // Create a new InnerFheFixed with c.size() as it's frac
+                // But if c.frac() is odd, then this is shifting by 2^odd, which means we can't scale back
+                
+                let ilog2 = self.key.smart_ilog2_parallelized(&mut inner);
+                let mut ilog4: Cipher = self.key.scalar_right_shift_parallelized(&ilog2, 1);
+                self.key.smart_scalar_add_assign_parallelized(&mut ilog4, 1);
 
-            let mut new_blocks = tmp_inner.clone().into_blocks();
-            new_blocks.drain(num_blocks+1..);
-            
-            let mut x_k = T::new(Cipher::from_blocks(new_blocks.clone()), new_size, new_frac);
-            let mut r_k = T::new(Cipher::from_blocks(new_blocks.clone()), new_size, new_frac);
+                self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
+                    (&mut inner, num_blocks);
+                self.key.full_propagate_parallelized(&mut ilog4);
+                inner = self.key.smart_block_shift_left(&mut inner, &mut ilog4);
 
-            let mut three_inner: Cipher = self.key
-                .create_trivial_radix(3u32, 1);
-            self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
-                (&mut three_inner, num_blocks);
-            
-            let mut three: T = T::new(three_inner, new_size, new_frac);
-            let is_power_of_four = self.key.
-                smart_scalar_eq_parallelized(x_k.inner_mut(), 1 << (new_size-4));
-            println!();
-            println!("x_k:");
-            print_if_trivial(&x_k);
-            println!("r_k:");
-            print_if_trivial(&r_k);
-            // the first 5 iterations (which are not necessarily quadratically convergent)
-            // are replaced with a self.key.smart_match_value_parallelized(ct, matches);
-            // That is, we look up the first m_k from a table
-            let mut m_0 = self.sqrt_first_bits(&mut x_k);
-            println!("m_0:");
-            print_if_trivial(&m_0);
+                let mut new_blocks = inner.into_blocks();
+                new_blocks.drain(num_blocks+1..);
 
-            propagate_if_needed_parallelized(&mut [m_0.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
-                rayon::join(
-                    || {
-                        let mut m_0_sqr = self.unchecked_mul(&m_0, &m_0);
-                        propagate_if_needed_parallelized(&mut [m_0_sqr.inner_mut()], &self.key);
-                        x_k = self.unchecked_mul(&x_k, &m_0_sqr);
-                    },
-                    || r_k = self.unchecked_mul(&r_k, &m_0),
-                );
+                let new_inner = Cipher::from_blocks(new_blocks);
+                let mut x_k = T::new(new_inner.clone(), new_size, new_frac);
+                let mut r_k = T::new(new_inner, new_size, new_frac);
 
-            for _ in 0..iters {
+                let mut three_inner: Cipher = self.key
+                    .create_trivial_radix(3u32, 1);
+                self.key.extend_radix_with_trivial_zero_blocks_lsb_assign
+                    (&mut three_inner, num_blocks);
+                
+                let mut three: T = T::new(three_inner, new_size, new_frac);
                 println!();
                 println!("x_k:");
                 print_if_trivial(&x_k);
                 println!("r_k:");
                 print_if_trivial(&r_k);
-                // We know that three always has empty carries, it doesn't need to be propagated
-                if self.key.is_sub_possible(three.inner(), x_k.inner()).is_err() {
-                    self.key.full_propagate_parallelized(x_k.inner_mut());
+                // the first 5 iterations (which are not necessarily quadratically convergent)
+                // are replaced with a self.key.smart_match_value_parallelized(ct, matches);
+                // That is, we look up the first m_k from a table
+                let mut m_0 = self.sqrt_first_bits(&mut x_k);
+                println!("m_0:");
+                print_if_trivial(&m_0);
+
+                propagate_if_needed_parallelized(&mut [m_0.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
+                    rayon::join(
+                        || {
+                            let mut m_0_sqr = self.unchecked_mul(&m_0, &m_0);
+                            propagate_if_needed_parallelized(&mut [m_0_sqr.inner_mut()], &self.key);
+                            x_k = self.unchecked_mul(&x_k, &m_0_sqr);
+                        },
+                        || r_k = self.unchecked_mul(&r_k, &m_0),
+                    );
+
+                for _ in 0..iters {
+                    /*println!();
+                    println!("x_k:");
+                    print_if_trivial(&x_k);
+                    println!("r_k:");
+                    print_if_trivial(&r_k);*/
+                    // We know that three always has empty carries, it doesn't need to be propagated
+                    if self.key.is_sub_possible(three.inner(), x_k.inner()).is_err() {
+                        self.key.full_propagate_parallelized(x_k.inner_mut());
+                    }
+                    let mut m_k = self.smart_sub(&mut three, &mut x_k);
+                    
+                    self.key.scalar_right_shift_assign_parallelized(m_k.inner_mut(), 1);
+                    
+                    /*println!("m_k:");
+                    print_if_trivial(&m_k);*/
+                    propagate_if_needed_parallelized(&mut [m_k.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
+                    rayon::join(
+                        || {
+                            let mut m_k_sqr = self.unchecked_mul(&m_k, &m_k);
+                            propagate_if_needed_parallelized(&mut [m_k_sqr.inner_mut()], &self.key);
+                            x_k = self.unchecked_mul(&x_k, &m_k_sqr);
+                        },
+                        || r_k = self.unchecked_mul(&r_k, &m_k),
+                    );
                 }
-                let mut m_k = self.smart_sub(&mut three, &mut x_k);
+                let blocks_to_add = num_blocks - 1 as usize;
+                let mut temp_inner = r_k.into_inner();
+                //println!("result_length: {}", result_inner.blocks().len());
+
+                self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut temp_inner, blocks_to_add);
+                self.key.smart_left_shift_assign_parallelized(&mut temp_inner, &mut ilog4);
+                let temp_frac: u32 = c.size() + c.frac()/2;
+                let temp_size: u32 = (temp_inner.blocks().len() * 2) as u32;
+                let temp = T::new(temp_inner, temp_size, temp_frac);
                 
-                self.key.scalar_right_shift_assign_parallelized(m_k.inner_mut(), 1);
+                /*println!("blocks_to_drain: {}", blocks_to_drain);
+                println!("blocks_to_add: {}", blocks_to_add);
+                println!("result_length: {}", result_blocks.len());*/
                 
-                println!("m_k:");
-                print_if_trivial(&m_k);
-                propagate_if_needed_parallelized(&mut [m_k.inner_mut(), x_k.inner_mut(), r_k.inner_mut()], &self.key);
-                rayon::join(
-                    || {
-                        let mut m_k_sqr = self.unchecked_mul(&m_k, &m_k);
-                        propagate_if_needed_parallelized(&mut [m_k_sqr.inner_mut()], &self.key);
-                        x_k = self.unchecked_mul(&x_k, &m_k_sqr);
-                    },
-                    || r_k = self.unchecked_mul(&r_k, &m_k),
-                );
+                let mut result = self.shrink(&temp, c.size(), c.frac());
+                println!("result:");
+                print_if_trivial(&result);
+                
+                result = self.sqrt_try_minus_eps(c, &mut result);
+                result = self.sqrt_try_plus_eps(c, &mut result);
+
+                result
             }
-            let blocks_to_drain = ((c.size() + c.frac() % 2 - c.frac()) >> 1) as usize;
-            let blocks_to_add = num_blocks + 1 - blocks_to_drain as usize;
-            let trivial_half_inner: Cipher =
-                self.key.create_trivial_radix(1<<new_size-3, num_blocks+1);
-            let mut result_inner = self.key.select_parallelized
-            (&is_power_of_four, &trivial_half_inner, r_k.inner());
-            //let mut result_inner = r_k.into_inner();
-            print_if_trivial(&T::new(result_inner.clone(), c.size(), c.frac()));
-            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut result_inner, blocks_to_add);
-
-            self.key.smart_left_shift_assign_parallelized(&mut result_inner, &mut ilog4);
-            self.key.scalar_right_shift_assign_parallelized(&mut result_inner, (c.frac()+1) >> 1 - c.frac() % 2);
-            let mut result_blocks = result_inner.into_blocks();
-            result_blocks.drain(0..blocks_to_drain);
-            let result = T::new(Cipher::from_blocks(result_blocks), c.size(), c.frac());
-            print_if_trivial(&result);
-
-
-            result
         }
     }
+
+    fn sqrt_try_minus_eps<T: FixedCiphertext>(&self, c: &mut T, sqrt: &mut T) -> T {
+        let num_blocks = (c.size() / 2) as usize;
+        // -eps_inner as unsigned, "temporary"
+        let mut minus_eps: Cipher = self.key.create_trivial_radix(1u128.wrapping_neg(), num_blocks);
+        let sqrteps_inner: Cipher = self.key.smart_add(sqrt.inner_mut(), &mut minus_eps);
+            
+        let sqrtteps = T::new(sqrteps_inner, c.size(), c.frac());
+        let mut sqr = self.wide_sqr(sqrt);
+        
+        let mut c_extended = self.widen(c, c.size()*2, c.frac()*2);
+        
+        let bool = &self.smart_gt(&mut sqr, &mut c_extended);
+        
+        let result = self.select(bool, &sqrtteps, sqrt);
+        result
+    }
+
+    fn sqrt_try_plus_eps<T: FixedCiphertext>(&self, c: &mut T, sqrt: &mut T) -> T {
+        let sqrteps_inner = self.key.smart_add(sqrt.inner_mut(),
+            &mut self.key.create_trivial_radix(1, (c.size() / 2) as usize));
+            
+        let mut sqrtteps = T::new(sqrteps_inner, c.size(), c.frac());
+        let mut sqr = self.wide_sqr(&mut sqrtteps);
+        let mut c_extended = self.widen(c, c.size()*2, c.frac()*2);
+
+        let bool = &self.smart_gt(&mut sqr, &mut c_extended);
+
+        let result = self.select(bool, sqrt, &sqrtteps);
+        result
+    }
+
+
+ 
 
     fn sqrt_first_bits<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let len = c.inner().blocks().len();
@@ -436,7 +479,7 @@ impl FixedServerKey {
             (&mut inner, (extra_frac_bits/2) as usize);
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign
             (&mut inner, 
-((extra_int_bits+1)/2) as usize);
+                ((extra_int_bits+1)/2) as usize);
 
         if extra_frac_bits % 2 == 1 {
             if self.key.is_add_possible(&inner, &inner).is_err() {
