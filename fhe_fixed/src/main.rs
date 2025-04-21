@@ -235,7 +235,7 @@ mod tests {
         };
     }
 
-    test_unary_op_exhaustive_u8!(smart_sqrt_guess_block, wrapping_sqrt,
+    test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
         (test_sqrt_exhaustive_u0f8, U8),
         (test_sqrt_exhaustive_u1f7, U7),
         (test_sqrt_exhaustive_u2f6, U6),
@@ -283,6 +283,44 @@ mod tests {
         (test_round_exhaustive_u8f0, U0)
     );
 
+    test_unary_op_exhaustive_u8!(smart_neg, wrapping_neg,
+        (test_neg_exhaustive_u0f8, U8),
+        (test_neg_exhaustive_u1f7, U7),
+        (test_neg_exhaustive_u2f6, U6),
+        (test_neg_exhaustive_u3f5, U5),
+        (test_neg_exhaustive_u4f4, U4),
+        (test_neg_exhaustive_u5f3, U3),
+        (test_neg_exhaustive_u6f2, U2),
+        (test_neg_exhaustive_u7f1, U1),
+        (test_neg_exhaustive_u8f0, U0)
+    );
+
+    macro_rules! test_unary_op_random_encrypted {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+            $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
+                $(
+                    #[test]
+                    fn $TestFnName() {
+                        for _ in 0..8 {
+                            let i: $ClearType = random();
+                            test_unary_op!(i,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,false);
+                        }
+                    }
+                )*
+            };
+    }
+
+    test_unary_op_random_encrypted!(smart_neg, wrapping_neg,
+        (test_neg_u16f0, U16, U0, U16F0, u16),
+        (test_neg_u14f2, U16, U2, U14F2, u16),
+        (test_neg_u12f4, U16, U4, U12F4, u16),
+        (test_neg_u10f6, U16, U6, U10F6, u16),
+        (test_neg_u8f8, U16, U8, U8F8, u16),
+        (test_neg_u6f10, U16, U10, U6F10, u16),
+        (test_neg_u4f12, U16, U12, U4F12, u16),
+        (test_neg_u2f14, U16, U14, U2F14, u16),
+        (test_neg_u0f16, U16, U16, U0F16, u16)
+    );
     macro_rules! test_sqr {
         ($ClearBits:expr, 
          $EncryptedMethod:ident, $ClearMethod:ident,
