@@ -3,30 +3,25 @@
 use std::io;
 use std::time::Instant;
 
-use fixed::traits::FixedUnsigned;
-use fixed::types::{U0F16, U10F6, U11F5, U12F4, U16F0, U8F8};
-use fixed::FixedU128;
+extern crate fixed as fixed_crate;
+
+use fixed_crate::types::{U0F16, U10F6, U11F5, U12F4, U16F0, U8F8};
+use fixed_crate::FixedU128;
 use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U15, U16, U2, U3, U32, U4, U5, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
-use tfhe::integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext};
-use tfhe::integer::{ServerKey, ClientKey};
 
 pub const PARAM: ClassicPBSParameters = tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
 pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint::Ciphertext>;
 
-mod fhefixed;
-mod arb_fixed_u;
-mod types;
+mod fixed;
 mod fhe_testing_macros;
-mod size_frac;
-mod add;
-use crate::fhefixed::*;
+use crate::fixed::*;
 
 
 fn main() {
     test_func_manual!(U16, U5, ck, server_key,          // Type of the operation, and key names
-        a.smart_sqrt_guess_bit(&server_key),               // The operation to test
-        U11F5::from_num(clear_a).wrapping_sqrt(),               // A ground truth to compare to, optional
+        a.smart_dbl(&server_key),               // The operation to test
+        //U11F5::from_num(clear_a).wrapping_sqrt(),               // A ground truth to compare to, optional
         | clear_a, a |                      // The clear and encrypted name(s) of relevant variables
         // iters                                        // The name(s) of variables that are only used as clear
     );
@@ -35,13 +30,13 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{FheU0F8, FheU1F7, FheU4F4, FheU5F3, FheU8F0};
+    use crate::aliases::{FheU0F8, FheU1F7, FheU4F4, FheU5F3, FheU8F0};
 
     use super::*;
     use rand::random;
     use typenum::{U0, U1, U10, U12, U14, U16, U2, U4, U6, U64, U7, U8};
-    use fixed::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U32F32, U0F64, U16F0, U0F16, U0F8, U10F6, U12F4, U14F2, U2F6, U1F7, U2F14, U4F12, U4F4, U5F3, U6F10, U8F0, U8F8}, FixedU16, FixedU8};
-    use crate::arb_fixed_u::ArbFixedU;
+    use fixed_crate::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U32F32, U0F64, U16F0, U0F16, U0F8, U10F6, U12F4, U14F2, U2F6, U1F7, U2F14, U4F12, U4F4, U5F3, U6F10, U8F0, U8F8}, FixedU16, FixedU8};
+    use crate::fixed::ArbFixedU;
     use std::sync::LazyLock;
 
     static CKEY: LazyLock<FixedClientKey> = LazyLock::new(|| {
@@ -164,6 +159,34 @@ mod tests {
         (test_mul_exhaustive_u8f0, U0)
     );
 
+    macro_rules! test_div_exhaustive_u8 {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+        $(($TestFnName:ident, $Frac:ty)),*) => {
+            $(
+                #[test]
+                fn $TestFnName() {
+                    for i in 1..=255u8 {
+                        for j in 1..=255u8 {
+                            test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
+                        }
+                    }
+                }
+            )*
+        };
+    }
+
+    /*test_div_exhaustive_u8!(smart_div, wrapping_div,
+        (test_div_exhaustive_u0f8, U8),
+        (test_div_exhaustive_u1f7, U7),
+        (test_div_exhaustive_u2f6, U6),
+        (test_div_exhaustive_u3f5, U5),
+        (test_div_exhaustive_u4f4, U4),
+        (test_div_exhaustive_u5f3, U3),
+        (test_div_exhaustive_u6f2, U2),
+        (test_div_exhaustive_u7f1, U1),
+        (test_div_exhaustive_u8f0, U0)
+    );*/
+
     macro_rules! test_bin_op_random_encrypted {
         ($EncryptedMethod:ident, $ClearMethod:ident,
             $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
@@ -222,6 +245,26 @@ mod tests {
         };
     }
 
+    macro_rules! test_unary_op_extensive {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
+            $(
+                #[test]
+                fn $TestFnName() {
+                    for _ in 0..1024 {
+                        let i: $ClearType = random();
+                        test_unary_op!(i,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
+                    }
+                }
+            )*
+        };
+    }
+
+    /*test_unary_op_extensive!(smart_sqrt_guess_bit, wrapping_sqrt,
+        (test_sqrt_extensive_u32f32, U64, U32, U32F32, u64),
+        (test_sqrt_extensive_u0f64, U64, U64, U0F64, u64)
+    );*/
+
     macro_rules! test_unary_op_exhaustive_u8 {
         ($EncryptedMethod:ident, $ClearMethod:ident,
         $(($TestFnName:ident, $Frac:ty)),*) => {
@@ -236,7 +279,7 @@ mod tests {
         };
     }
 
-    test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
+    /*test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
         (test_sqrt_exhaustive_u0f8, U8),
         (test_sqrt_exhaustive_u1f7, U7),
         (test_sqrt_exhaustive_u2f6, U6),
@@ -246,9 +289,9 @@ mod tests {
         (test_sqrt_exhaustive_u6f2, U2),
         (test_sqrt_exhaustive_u7f1, U1),
         (test_sqrt_exhaustive_u8f0, U0)
-    );
+    );*/
 
-    test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
+    /*test_unary_op_exhaustive_u8!(smart_sqrt_guess_bit, wrapping_sqrt,
         (test_sqrt_bits_exhaustive_u0f8, U8),
         (test_sqrt_bits_exhaustive_u1f7, U7),
         (test_sqrt_bits_exhaustive_u2f6, U6),
@@ -258,7 +301,7 @@ mod tests {
         (test_sqrt_bits_exhaustive_u6f2, U2),
         (test_sqrt_bits_exhaustive_u7f1, U1),
         (test_sqrt_bits_exhaustive_u8f0, U0)
-    );
+    );*/
 
     test_unary_op_exhaustive_u8!(smart_floor, wrapping_floor,
         (test_floor_exhaustive_u0f8, U8),

@@ -8,7 +8,7 @@ use typenum::{U0, U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13,
     U90, U91, U92, U93, U94, U95, U96, U97, U98, U99, U100, U101, U102, U103, U104, U105, U106,
     U107, U108, U109, U110, U111, U112, U113, U114, U115, U116, U117, U118, U119, U120, U121, U122,
     U123, U124, U125, U126, U127, U128};
-use crate::fhefixed::FheFixedU;
+use crate::fixed::FheFixedU;
 
 
 pub type FheU4F0 = FheFixedU<U4, U0>;

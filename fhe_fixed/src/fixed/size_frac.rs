@@ -1,4 +1,4 @@
-use typenum::{Cmp, IsGreater, IsGreaterOrEqual, Same, True, Unsigned, U2, U0, UInt, B0};
+use typenum::{Cmp, IsGreaterOrEqual, Same, True, Unsigned, U2, U0, UInt, B0};
 
 mod sealed {
     use super::*;

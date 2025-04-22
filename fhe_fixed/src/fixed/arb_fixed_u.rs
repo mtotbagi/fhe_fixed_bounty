@@ -1,16 +1,13 @@
 #![allow(unused_imports)]
 
 use std::fmt::{Debug, Binary, Display, Formatter, Result};
-use std::{marker::PhantomData, ops::Add};
+use std::marker::PhantomData;
 
-use fixed::traits::FixedUnsigned;
-use fixed::types::extra::LeEqU128;
-use fixed::types::U10F6;
-use fixed::FixedU128;
+use fixed_crate::types::extra::LeEqU128;
+use fixed_crate::FixedU128;
 use crate::size_frac::{FixedFrac, FixedSize};
-use tfhe::integer::block_decomposition::{Decomposable, DecomposableInto};
-use typenum::{Bit, Cmp, Diff, IsGreater, PowerOfTwo, Same, True, UInt, Unsigned, U10, U1000, U16, U6, U8, U2,U0, IsGreaterOrEqual};
-use fixed::{traits::ToFixed, types::U8F8};
+use typenum::Unsigned;
+use fixed_crate::traits::ToFixed;
 
 #[derive(Clone)]
 /// Fixed point unsigned, of arbitrary length.
