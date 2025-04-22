@@ -85,14 +85,18 @@ pub(crate) struct InnerFheFixedU {
 pub trait FixedCiphertext: Clone + Sync + Send{
     const IS_SIGNED: bool;
     fn inner(&self) -> &Cipher;
-    fn inner_mut(&mut self) -> &mut Cipher;
     fn into_inner(self) -> Cipher;
     fn size(&self) -> u32;
     fn frac(&self) -> u32;
-    fn new(inner: Cipher, size: u32, frac: u32) -> Self;
+    fn new(inner: Cipher) -> Self;
     fn bits_in_block(&self) -> u32;
 }
 
+pub trait FixedCiphertextInner: FixedCiphertext + Clone + Sync + Send{
+    fn inner_mut(&mut self) -> &mut Cipher;
+}
+
+/*
 impl FixedCiphertext for InnerFheFixedU {
     const IS_SIGNED: bool = false;
 
@@ -103,11 +107,6 @@ impl FixedCiphertext for InnerFheFixedU {
     fn into_inner(self) -> Cipher {
         self.inner
     }
-    
-    fn inner_mut(&mut self) -> &mut Cipher {
-        &mut self.inner
-    }
-
     fn size(&self) -> u32 {
         Size::U32
     }
@@ -130,20 +129,7 @@ impl FixedCiphertext for InnerFheFixedU {
         }
     }
 }
-
-pub trait FixedCiphertext: Clone + Sync + Send{
-    const IS_SIGNED: bool;
-    fn inner(&self) -> &Cipher;
-    fn into_inner(self) -> Cipher;
-    fn size(&self) -> u32;
-    fn frac(&self) -> u32;
-    fn new(inner: Cipher) -> Self;
-    fn bits_in_block(&self) -> u32;
-}
-
-pub trait FixedCiphertextInner: FixedCiphertext + Clone + Sync + Send {
-    fn inner_mut(&mut self) -> &mut Cipher;
-}
+*/
 
 pub struct FixedServerKey {
     pub key: ServerKey
