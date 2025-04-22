@@ -19,7 +19,7 @@ mod arb_fixed_u;
 mod types;
 mod fhe_testing_macros;
 mod size_frac;
-
+mod add;
 use crate::fhefixed::*;
 
 
