@@ -596,7 +596,7 @@ pub trait FheFixed<AF, CKey, SKey>
     fn smart_mul_assign(&mut self, rhs: &mut Self, key: &SKey);
     fn smart_sqr(&mut self, key: &SKey) -> Self;
     fn smart_sqr_assign(&mut self, key: &FixedServerKey);
-    fn smart_div(&self, rhs: &mut Self, key: &SKey) -> Self;
+    fn smart_div(&mut self, rhs: &mut Self, key: &SKey) -> Self;
     
     // Unary operations
     fn smart_ilog2(&mut self, key: &SKey) -> SignedRadixCiphertext;
@@ -749,7 +749,6 @@ Frac: FixedFrac
         //
         //      B >>= 1
         //      BS >>= 2
-
         //needed since this is a smart function, also since bivariate lookup would drop carries
         if !self.inner.block_carries_are_empty() {
             key.key.full_propagate_parallelized(&mut self.inner);
@@ -761,7 +760,6 @@ Frac: FixedFrac
         // some helper numbers for ease of use later
         let log_modulus_usize = key.key.message_modulus().0.ilog2() as usize;               // number of bits in msg
         let blocks_with_frac = (Frac::USIZE + log_modulus_usize - 1) / log_modulus_usize;   // number of blocks containing a fractional bit
-        let i_bits = Size::USIZE - Frac::USIZE;                                             // the number of integer (non-frac) bits
         let wide_block_size = self.inner.blocks().len() + blocks_with_frac*2;                 // the size of the wide versions in blocks (widness when we have fractional bits)
         let least_used_bit_idx = blocks_with_frac * log_modulus_usize;                      // the index of the first non-wide bit (so the least bit that is relevant to the result)
         let largest_used_bit_idx = least_used_bit_idx + Size::USIZE + Frac::USIZE - 1;                    // the index of the most significant bit that could be set
@@ -769,8 +767,6 @@ Frac: FixedFrac
         // the wide remainder, we will decrease this each iteration if it was still larger than the current square
         let mut wide_remainder = key.key.extend_radix_with_trivial_zero_blocks_lsb(&self.inner, blocks_with_frac);
         key.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut wide_remainder, blocks_with_frac);
-        let wide_rhs = key.key.extend_radix_with_trivial_zero_blocks_lsb(&rhs.inner, blocks_with_frac);
-        let wide_rhs = key.key.extend_radix_with_trivial_zero_blocks_msb(&wide_rhs, blocks_with_frac);
         let mut wide_result: Cipher = key.key.create_trivial_zero_radix(wide_block_size); // only needed as wide for ease of indexing later
 
         // the single guess bit, starting at its largest value
@@ -786,16 +782,38 @@ Frac: FixedFrac
             key.key.key.generate_lookup_table_bivariate(
                 |block, overflow| if overflow != 0 { block } else { 0 }
             );
-
-        // leading zeros:
-        // we can't have a bit set, if that would result in an overflow -> if rhs has 5 leading zeros, then we have i_bits - 5 - 1
-        //leading zeros should be max(i_bits - 1 - lz_rhs, 0)
-        // we actually need size-1-lz_rhs
-        let leading_zeros_rhs = key.key.unchecked_leading_zeros_parallelized(&rhs.inner);
-        //max(i_bits - 1 - lz_rhs, 0) = max(i_bits - 1, lz_rhs) - lz_rhs
-        let max = key.key.unchecked_scalar_max_parallelized(&leading_zeros_rhs, Size::U64 - 1);
-        let (leading_zeros ,_) = key.key.unchecked_unsigned_overflowing_sub_parallelized(&max, &leading_zeros_rhs);
         
+        let (shifted_wide_rhs_vec, leading_zeros) = rayon::join(
+            || {
+                let message_mod = key.key.message_modulus().0 as isize;
+                //since rhs never changes, you can precompute all the shifts
+                let wide_rhs = key.key.extend_radix_with_trivial_zero_blocks_lsb(&rhs.inner, blocks_with_frac);
+                let wide_rhs = key.key.extend_radix_with_trivial_zero_blocks_msb(&wide_rhs, blocks_with_frac + 1);
+                let wide_shifted_rhs_vec = 
+                    (0..=message_mod).into_par_iter().map(
+                        |idx| {
+                            unchecked_signed_scalar_left_shift_parallelized(&key.key, &wide_rhs, idx)
+                        }
+                    ).collect::<Vec<_>>();
+
+                (least_used_bit_idx..=largest_used_bit_idx).into_par_iter().map(
+                    |idx| {
+                        let shift_amount_signed = idx as isize - least_used_bit_idx as isize - Frac::USIZE as isize; //same as shift amount calc later
+                        let mod_of_shift = (shift_amount_signed % message_mod + message_mod) % message_mod;
+                        let shift_amount_signed = shift_amount_signed - mod_of_shift;
+                        let wider_shifted = unchecked_signed_scalar_left_shift_parallelized(&key.key, &wide_shifted_rhs_vec[mod_of_shift as usize], shift_amount_signed);
+                        Cipher::from_blocks(wider_shifted.blocks()[..wider_shifted.blocks().len() - 1].to_vec())
+                    }
+                ).collect::<Vec<_>>()
+            }, || {
+                // leading zeros:
+                // we can't have a bit set, if that would result in an overflow -> if rhs has 5 leading zeros, then we have i_bits - 5 - 1
+                //leading zeros should be max(i_bits - 1 - lz_rhs, 0)
+                // we actually need size-1-lz_rhs
+                key.key.unchecked_leading_zeros_parallelized(&rhs.inner)
+            }
+        );
+
         // main loop, iterates through the index of every result bit that could be set
         for guess_bit_idx in (least_used_bit_idx..=largest_used_bit_idx).rev() {
             // we assign some more helper vars
@@ -806,19 +824,25 @@ Frac: FixedFrac
 
             // in each loop we only operate on the sub-parts of the ciphers that could be non-zero, so we drop unneeded parts
             let mut narrow_remainder_old = Cipher::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
-            let narrow_rhs = wide_rhs.clone();
             let mut guess_block = guess_radix.blocks()[guess_block_idx].clone();    // they are created as entire ciphers, since there is no convenient block-rotate
             
             // this does 2*R*B, since 2*B is still a (clear) power of two, we can just shift R by a scalar
             // for some reason we need to ensure that it has the correct degrees, else the subtraction will not work
-            let mut narrow_rhs_shifted = unchecked_signed_scalar_left_shift_parallelized(&key.key, &narrow_rhs, shift_amount_signed);
-            narrow_rhs_shifted = Cipher::from(narrow_rhs_shifted.blocks()[ls_used_block_idx..].to_vec());
-
+            let narrow_rhs_shifted = Cipher::from(shifted_wide_rhs_vec[guess_bit_idx-least_used_bit_idx].blocks()[ls_used_block_idx..].to_vec());
             // calculate V - (2*R*B + BS) and V >= (2*R*B + BS)      (the new value of V, and the guard of the if-stmt)
-            let (mut narrow_remainder_new, overflow_happened) = key.key.unchecked_unsigned_overflowing_sub_parallelized(&narrow_remainder_old, &narrow_rhs_shifted);
-            let is_leading_zero = key.key.unchecked_scalar_gt_parallelized(&leading_zeros, (largest_used_bit_idx - guess_bit_idx) as u64).into_raw_parts();
-            let overflow_happened = key.key.key.unchecked_add(&overflow_happened.into_raw_parts(), &is_leading_zero);
-
+            let ((mut narrow_remainder_new, sub_overflowed), is_leading_zero) = 
+                rayon::join(
+                    || {
+                        key.key.unchecked_unsigned_overflowing_sub_parallelized(&narrow_remainder_old, &narrow_rhs_shifted)
+                    }, || {
+                        let cmp_val = Size::USIZE - (largest_used_bit_idx - guess_bit_idx) - 1;
+                        if cmp_val < 1 {
+                            key.key.key.create_trivial(0)
+                        } else {
+                            key.key.unchecked_scalar_lt_parallelized(&leading_zeros, cmp_val as u64).into_raw_parts()
+                        }
+                });
+            let overflow_happened = key.key.key.unchecked_add(&sub_overflowed.into_raw_parts(), &is_leading_zero);
 
             // here we evaluate which branch of the if was taken, by zeroing out the unused branch (the second branch is just the identity)
             rayon::join(
@@ -862,33 +886,6 @@ Frac: FixedFrac
         }
         // discard unused part of the result, and return the rest
         Self::new(Cipher::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec()))
-        
-        
-        // rayon::join(
-        //     || if !self.inner.block_carries_are_empty()
-        //     {key.key.full_propagate_parallelized(&mut self.inner);},
-        //     || if !rhs.inner.block_carries_are_empty()
-        //     {key.key.full_propagate_parallelized(&mut rhs.inner);},
-        // );
-        
-        // let mut result = self.clone();
-
-        // let blocks_with_frac = (Frac::USIZE + 1) >> 1;
-
-        // key.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut result.inner, blocks_with_frac);
-        // key.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut rhs.inner, blocks_with_frac);
-
-        // key.key.unchecked_div_assign_parallelized(&mut result.inner, &rhs.inner);
-
-        // if Frac::U8 % 2 != 0 {
-        //     // bcs of above, this is fine as a default
-        //     key.key.scalar_right_shift_assign_parallelized(&mut result.inner, 1);
-        // }
-
-        // let mut blocks = result.inner.into_blocks();
-        // blocks.drain(blocks.len()-blocks_with_frac..);
-
-        // Self::new(Cipher::from_blocks(blocks))
     }
 
     fn smart_ilog2(&mut self, key: &FixedServerKey) -> SignedRadixCiphertext {
