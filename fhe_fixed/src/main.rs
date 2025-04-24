@@ -6,7 +6,8 @@ use std::time::Instant;
 extern crate fixed as fixed_crate;
 
 use fixed_crate::types::{U0F16, U10F6, U11F5, U12F4, U16F0, U8F8};
-use fixed_crate::FixedU128;
+use fixed_crate::{FixedU16, FixedU8, FixedU128};
+use tfhe::integer::IntegerCiphertext;
 use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U15, U16, U2, U3, U32, U4, U5, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
 
@@ -17,12 +18,18 @@ mod fixed;
 mod fhe_testing_macros;
 use crate::fixed::*;
 
-
 fn main() {
-    test_func_manual!(U16, U5, ck, server_key,          // Type of the operation, and key names
-        a.smart_dbl(&server_key),               // The operation to test
-        //U11F5::from_num(clear_a).wrapping_sqrt(),               // A ground truth to compare to, optional
-        | clear_a, a |                      // The clear and encrypted name(s) of relevant variables
+    type FracType = U0;
+    type ClearFixed = FixedU16<FracType>;
+    test_func_manual!(U16, FracType, ck, server_key,          // Type of the operation, and key names
+        {
+            // a.smart_div(&mut b, &server_key)
+            let mut res = a.clone();
+            server_key.key.smart_div_assign_parallelized(res.inner.inner_mut(), b.inner.inner_mut());
+            res
+        },               // The operation to test
+        ClearFixed::from_num(clear_a).wrapping_div(ClearFixed::from_num(clear_b)),               // A ground truth to compare to, optional
+        | clear_a, a; clear_b, b |                      // The clear and encrypted name(s) of relevant variables
         // iters                                        // The name(s) of variables that are only used as clear
     );
 }
@@ -34,8 +41,8 @@ mod tests {
 
     use super::*;
     use rand::random;
-    use typenum::{U0, U1, U10, U12, U14, U16, U2, U4, U6, U64, U7, U8};
-    use fixed_crate::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U32F32, U0F64, U16F0, U0F16, U0F8, U10F6, U12F4, U14F2, U2F6, U1F7, U2F14, U4F12, U4F4, U5F3, U6F10, U8F0, U8F8}, FixedU16, FixedU8};
+    use typenum::{U0, U1, U10, U12, U14, U16, U2, U4, U48, U6, U64, U7, U8};
+    use fixed_crate::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U0F16, U0F64, U0F8, U10F6, U12F4, U14F2, U16F0, U16F48, U1F7, U2F14, U2F6, U32F32, U3F5, U48F16, U4F12, U4F4, U5F3, U64F0, U6F10, U6F2, U7F1, U8F0, U8F8}, FixedU16, FixedU8};
     use crate::fixed::ArbFixedU;
     use std::sync::LazyLock;
 
@@ -81,7 +88,9 @@ mod tests {
             let clear_res = <$Fixed>::$ClearMethod(lhs_fixed, rhs_fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
-            assert_eq!(ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res);
+            assert_eq!(ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res,
+            "expected: {}, got: {}, from: {}, {}",
+            ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res, $LhsBits, $RhsBits);
         };
     }
 
@@ -94,6 +103,23 @@ mod tests {
                     for _ in 0..1024 {
                         let i: $ClearType = random();
                         let j: $ClearType = random();
+                        test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
+                    }
+                }
+            )*
+        };
+    }
+
+    macro_rules! test_div_extensive {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
+            $(
+                #[test]
+                fn $TestFnName() {
+                    for _ in 0..1024 {
+                        let i: $ClearType = random();
+                        let mut j: $ClearType = random();
+                        if j == 0 {j += 1};
                         test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
                     }
                 }
@@ -165,7 +191,7 @@ mod tests {
             $(
                 #[test]
                 fn $TestFnName() {
-                    for i in 1..=255u8 {
+                    for i in 0..=255u8 {
                         for j in 1..=255u8 {
                             test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
                         }
@@ -175,7 +201,7 @@ mod tests {
         };
     }
 
-    /*test_div_exhaustive_u8!(smart_div, wrapping_div,
+    test_div_exhaustive_u8!(smart_div, wrapping_div,
         (test_div_exhaustive_u0f8, U8),
         (test_div_exhaustive_u1f7, U7),
         (test_div_exhaustive_u2f6, U6),
@@ -185,7 +211,26 @@ mod tests {
         (test_div_exhaustive_u6f2, U2),
         (test_div_exhaustive_u7f1, U1),
         (test_div_exhaustive_u8f0, U0)
-    );*/
+    );
+
+    test_div_extensive!(smart_div, wrapping_div,
+        (test_div_extensive_u8_u8f0, U8, U0, U8F0, u8),
+        (test_div_extensive_u8_u7f1, U8, U1, U7F1, u8),
+        (test_div_extensive_u8_u6f2, U8, U2, U6F2, u8),
+        (test_div_extensive_u8_u5f3, U8, U3, U5F3, u8),
+        (test_div_extensive_u8_u4f4, U8, U4, U4F4, u8),
+        (test_div_extensive_u8_u3f5, U8, U5, U3F5, u8),
+        (test_div_extensive_u8_u2f6, U8, U6, U2F6, u8),
+        (test_div_extensive_u8_u1f7, U8, U7, U1F7, u8),
+        (test_div_extensive_u8_u0f8, U8, U8, U0F8, u8),
+        (test_div_extensive_u64f0, U64, U0, U64F0, u64),
+        (test_div_extensive_u48f16, U64, U16, U48F16, u64),
+        (test_div_extensive_u32f32, U64, U32, U32F32, u64),
+        (test_div_extensive_u16f48, U64, U48, U16F48, u64),
+        (test_div_extensive_u0f64, U64, U64, U0F64, u64)
+    );
+
+    // (test_add_extensive_u32f32, U64, U32, U32F32, u64),
 
     macro_rules! test_bin_op_random_encrypted {
         ($EncryptedMethod:ident, $ClearMethod:ident,
@@ -260,10 +305,10 @@ mod tests {
         };
     }
 
-    /*test_unary_op_extensive!(smart_sqrt_guess_bit, wrapping_sqrt,
+    test_unary_op_extensive!(smart_sqrt, wrapping_sqrt,
         (test_sqrt_extensive_u32f32, U64, U32, U32F32, u64),
         (test_sqrt_extensive_u0f64, U64, U64, U0F64, u64)
-    );*/
+    );
 
     macro_rules! test_unary_op_exhaustive_u8 {
         ($EncryptedMethod:ident, $ClearMethod:ident,
@@ -279,7 +324,7 @@ mod tests {
         };
     }
 
-    /*test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
+    test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
         (test_sqrt_exhaustive_u0f8, U8),
         (test_sqrt_exhaustive_u1f7, U7),
         (test_sqrt_exhaustive_u2f6, U6),
@@ -289,19 +334,7 @@ mod tests {
         (test_sqrt_exhaustive_u6f2, U2),
         (test_sqrt_exhaustive_u7f1, U1),
         (test_sqrt_exhaustive_u8f0, U0)
-    );*/
-
-    /*test_unary_op_exhaustive_u8!(smart_sqrt_guess_bit, wrapping_sqrt,
-        (test_sqrt_bits_exhaustive_u0f8, U8),
-        (test_sqrt_bits_exhaustive_u1f7, U7),
-        (test_sqrt_bits_exhaustive_u2f6, U6),
-        (test_sqrt_bits_exhaustive_u3f5, U5),
-        (test_sqrt_bits_exhaustive_u4f4, U4),
-        (test_sqrt_bits_exhaustive_u5f3, U3),
-        (test_sqrt_bits_exhaustive_u6f2, U2),
-        (test_sqrt_bits_exhaustive_u7f1, U1),
-        (test_sqrt_bits_exhaustive_u8f0, U0)
-    );*/
+    );
 
     test_unary_op_exhaustive_u8!(smart_floor, wrapping_floor,
         (test_floor_exhaustive_u0f8, U8),

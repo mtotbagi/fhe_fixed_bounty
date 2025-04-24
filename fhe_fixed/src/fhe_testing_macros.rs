@@ -136,3 +136,18 @@ macro_rules! test_func_manual {
         print_result!($gt, "gt", u, f);
     };
 }
+
+#[macro_export]
+macro_rules! meas_start {
+    ($name:ident) => {
+       let $name = Instant::now();
+    };
+}
+
+#[macro_export]
+macro_rules! meas_end {
+    ($name:ident) => {
+       let elapsed = $name.elapsed();
+       println!("{}: {}", stringify!($name), elapsed.as_nanos()) 
+    };
+}
