@@ -5,7 +5,7 @@ use rayon::prelude::*;
 
 impl FixedServerKey {
     pub(crate) fn smart_mul<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
-        propagate_if_needed_parallelized(&mut[lhs.inner_mut(), rhs.inner_mut()], &self.key);
+        propagate_if_needed_parallelized(&mut[lhs.bits_mut(), rhs.bits_mut()], &self.key);
 
         self.unchecked_mul(lhs, rhs)
     }
@@ -13,21 +13,21 @@ impl FixedServerKey {
     pub(crate) fn unchecked_mul<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> T {
         let blocks_with_frac = (lhs.frac() + 1) >> 1;
 
-        let mut lhs_inner = lhs.inner().clone();
-        let mut rhs_inner = rhs.inner().clone();
+        let mut lhs_bits = lhs.bits().clone();
+        let mut rhs_bits = rhs.bits().clone();
 
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign
-            (&mut lhs_inner, blocks_with_frac as usize);
+            (&mut lhs_bits, blocks_with_frac as usize);
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign
-            (&mut rhs_inner, blocks_with_frac as usize);
+            (&mut rhs_bits, blocks_with_frac as usize);
 
-        self.key.unchecked_mul_assign_parallelized(&mut lhs_inner, &rhs_inner);
+        self.key.unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
 
         if lhs.frac() % 2 != 0 {
-            self.key.scalar_left_shift_assign_parallelized(&mut lhs_inner, 1);
+            self.key.scalar_left_shift_assign_parallelized(&mut lhs_bits, 1);
         }
 
-        let mut blocks = lhs_inner.into_blocks();
+        let mut blocks = lhs_bits.into_blocks();
         blocks.drain(0..blocks_with_frac as usize);
 
         T::new(Cipher::from_blocks(blocks))
@@ -44,8 +44,8 @@ impl FixedServerKey {
     pub(crate) fn smart_sqr<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
         assert!(c.size() >= c.frac());
         
-        if !c.inner().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.inner_mut());
+        if !c.bits().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.bits_mut());
         }
 
         self.unchecked_sqr(c)
@@ -54,20 +54,20 @@ impl FixedServerKey {
     pub(crate) fn unchecked_sqr<T: FixedCiphertextInner>(&self, c: &T) -> T {
         let blocks_with_frac = (c.frac() + 1) >> 1;
 
-        let mut inner = c.inner().clone();
+        let mut bits = c.bits().clone();
         
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign
-        (&mut inner, blocks_with_frac as usize);
+        (&mut bits, blocks_with_frac as usize);
 
-        smart_sqr_assign(&mut inner, &self.key);
-        if !inner.block_carries_are_empty() {
-            self.key.full_propagate_parallelized(&mut inner);
+        smart_sqr_assign(&mut bits, &self.key);
+        if !bits.block_carries_are_empty() {
+            self.key.full_propagate_parallelized(&mut bits);
         }
         if c.frac() % 2 != 0 {
-            self.key.scalar_left_shift_assign_parallelized(&mut inner, 1);
+            self.key.scalar_left_shift_assign_parallelized(&mut bits, 1);
         }
 
-        let mut blocks = inner.into_blocks();
+        let mut blocks = bits.into_blocks();
         blocks.drain(0..blocks_with_frac as usize);
 
         T::new(Cipher::from_blocks(blocks))

@@ -18,7 +18,7 @@ impl FixedServerKey {
 
     
     pub(crate) fn smart_sqrt_assign<T: FixedCiphertextInner> (&self, lhs: &mut T) {
-        propagate_if_needed_parallelized(&mut[lhs.inner_mut()], &self.key);
+        propagate_if_needed_parallelized(&mut[lhs.bits_mut()], &self.key);
         self.unchecked_sqrt_assign(lhs);
     }
     
@@ -44,14 +44,14 @@ impl FixedServerKey {
         // some helper numbers for ease of use later
         let log_modulus_usize = self.key.message_modulus().0.ilog2() as usize;                      // number of bits in msg
         let blocks_with_frac = (c.frac() as usize + log_modulus_usize - 1) / log_modulus_usize;     // number of blocks containing a fractional bit
-        let wide_block_size = c.inner().blocks().len() + blocks_with_frac;                          // the size of the wide versions in blocks (widness when we have fractional bits)
+        let wide_block_size = c.bits().blocks().len() + blocks_with_frac;                          // the size of the wide versions in blocks (widness when we have fractional bits)
         let i_bits = c.size() as usize - c.frac() as usize;                                         // the number of integer (non-frac) bits
         let used_i_bits = (i_bits+1) / 2;                                                           // the number of integer bits that could be 1
         let least_used_bit_idx = blocks_with_frac * log_modulus_usize;                              // the index of the first non-wide bit (so the least bit that is relevant to the result)
         let largest_used_bit_idx = least_used_bit_idx + c.frac() as usize + used_i_bits - 1;        // the index of the most significant bit that could be set
         
         // the wide remainder, we will decrease this each iteration if it was still larger than the current square
-        let mut wide_remainder = self.key.extend_radix_with_trivial_zero_blocks_lsb(&c.inner(), blocks_with_frac);
+        let mut wide_remainder = self.key.extend_radix_with_trivial_zero_blocks_lsb(&c.bits(), blocks_with_frac);
 
         // result is only needed as wide for ease of indexing later
         let mut wide_result: Cipher = self.key.create_trivial_zero_radix(wide_block_size); 
@@ -158,7 +158,7 @@ impl FixedServerKey {
             // while there are no carries, there is some noise that we should clear
             self.key.key.message_extract_assign(block);
         });
-        *c.inner_mut() = narrow_result;
+        *c.bits_mut() = narrow_result;
     }
 }
 

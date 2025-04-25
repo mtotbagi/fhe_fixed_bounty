@@ -8,29 +8,28 @@ pub trait FixedCiphertext: Clone + Sync + Send{
     const IS_SIGNED: bool;
     const SIZE: u32;
     const FRAC: u32;
-    fn inner(&self) -> &Cipher;
-    fn into_inner(self) -> Cipher;
+    fn bits(&self) -> &Cipher;
+    fn into_bits(self) -> Cipher;
     fn size(&self) -> u32;
     fn frac(&self) -> u32;
-    fn new(inner: Cipher) -> Self;
+    fn new(bits: Cipher) -> Self;
     fn bits_in_block(&self) -> u32;
 }
 
 pub trait FixedCiphertextInner: FixedCiphertext + Clone + Sync + Send{
-    type ClearType;
-    fn inner_mut(&mut self) -> &mut Cipher;
+    fn bits_mut(&mut self) -> &mut Cipher;
 }
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedU<Size, Frac> {
-    inner: Cipher,
+    bits: Cipher,
     phantom1: PhantomData<Size>,
     phantom2: PhantomData<Frac>
 }
 
 impl<Size, Frac> InnerFheFixedU<Size, Frac> {
-    pub fn new(inner: Cipher) -> InnerFheFixedU<Size, Frac> {
-        InnerFheFixedU { inner, phantom1: PhantomData, phantom2: PhantomData }
+    fn new(bits: Cipher) -> InnerFheFixedU<Size, Frac> {
+        InnerFheFixedU { bits, phantom1: PhantomData, phantom2: PhantomData }
     }
 }
 
@@ -41,12 +40,12 @@ Frac: FixedFrac {
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
 
-    fn inner(&self) -> &Cipher {
-        &self.inner
+    fn bits(&self) -> &Cipher {
+        &self.bits
     }
 
-    fn into_inner(self) -> Cipher {
-        self.inner
+    fn into_bits(self) -> Cipher {
+        self.bits
     }
     fn size(&self) -> u32 {
         Size::U32
@@ -61,7 +60,7 @@ Frac: FixedFrac {
     }
 
     fn bits_in_block(&self) -> u32 {
-        let modulus = self.inner.blocks()[0].message_modulus.0;
+        let modulus = self.bits.blocks()[0].message_modulus.0;
         let log2 = modulus.ilog2();
         if 2u64.pow(log2) == modulus {
             log2
@@ -74,9 +73,8 @@ Frac: FixedFrac {
 impl<Size, Frac> FixedCiphertextInner for InnerFheFixedU<Size, Frac> where
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
-    type ClearType = ArbFixedU<Size, Frac>;
-    fn inner_mut(&mut self) -> &mut Cipher {
-        &mut self.inner
+    fn bits_mut(&mut self) -> &mut Cipher {
+        &mut self.bits
     }
 }
 
@@ -96,16 +94,16 @@ Frac: FixedFrac {
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
 
-    fn inner(&self) -> &Cipher {
-        &self.inner.inner()
+    fn bits(&self) -> &Cipher {
+        &self.inner.bits()
     }
 
-    fn into_inner(self) -> Cipher {
-        self.inner.into_inner()
+    fn into_bits(self) -> Cipher {
+        self.inner.into_bits()
     }
 
     fn size(&self) -> u32 {
-        Size::U32
+        Self::SIZE
     }
 
     fn frac(&self) -> u32 {

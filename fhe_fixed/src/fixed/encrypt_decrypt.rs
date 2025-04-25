@@ -93,7 +93,7 @@ Frac: FixedFrac {
 
     pub fn decrypt(&self, key: &FixedClientKey) -> ArbFixedU<Size, Frac>
     {
-        let blocks = &self.inner.inner().blocks();
+        let blocks = &self.inner.bits().blocks();
         let clear_blocks: Vec<u8> = blocks.iter().map(|x| {
             key.key.key.decrypt_message_and_carry(x) as u8
         }).collect();

@@ -25,7 +25,7 @@ fn main() {
         {
             // a.smart_div(&mut b, &server_key)
             let mut res = a.clone();
-            server_key.key.smart_div_assign_parallelized(res.inner.inner_mut(), b.inner.inner_mut());
+            server_key.key.smart_div_assign_parallelized(res.inner.bits_mut(), b.inner.bits_mut());
             res
         },               // The operation to test
         ClearFixed::from_num(clear_a).wrapping_div(ClearFixed::from_num(clear_b)),               // A ground truth to compare to, optional

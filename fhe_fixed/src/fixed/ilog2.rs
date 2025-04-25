@@ -5,18 +5,18 @@ use tfhe::{integer::{ciphertext::BaseSignedRadixCiphertext, IntegerCiphertext}, 
 impl FixedServerKey {
     
     pub(crate) fn smart_ilog2<T: FixedCiphertextInner>(&self, c: &mut T) -> BaseSignedRadixCiphertext<Ciphertext> {
-        if !c.inner().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.inner_mut());
+        if !c.bits().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.bits_mut());
         }
         self.unchecked_ilog2(c)
     }
 
     pub(crate) fn unchecked_ilog2<T: FixedCiphertextInner>(&self, c: &T) -> BaseSignedRadixCiphertext<Ciphertext> {
-        let tmp: Cipher = self.key.unchecked_ilog2_parallelized(c.inner());
+        let tmp: Cipher = self.key.unchecked_ilog2_parallelized(c.bits());
         let len = tmp.blocks().len();
-        let mut inner = self.key.cast_to_signed(tmp, len);
-        self.key.smart_scalar_sub_assign_parallelized(&mut inner, c.frac());
-        inner
+        let mut bits = self.key.cast_to_signed(tmp, len);
+        self.key.smart_scalar_sub_assign_parallelized(&mut bits, c.frac());
+        bits
     }
 }
 

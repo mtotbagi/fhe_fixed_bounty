@@ -6,41 +6,41 @@ use crate::fixed::{FheFixedU, FixedCiphertextInner};
 impl FixedServerKey {
 
     fn smart_eq<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.smart_eq_parallelized(lhs.inner_mut(), &mut rhs.inner_mut())
+        self.key.smart_eq_parallelized(lhs.bits_mut(), &mut rhs.bits_mut())
     }
     fn smart_ne<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.smart_ne_parallelized(lhs.inner_mut(), &mut rhs.inner_mut())
+        self.key.smart_ne_parallelized(lhs.bits_mut(), &mut rhs.bits_mut())
     }
     fn smart_lt<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.smart_lt_parallelized(lhs.inner_mut(), &mut rhs.inner_mut())
+        self.key.smart_lt_parallelized(lhs.bits_mut(), &mut rhs.bits_mut())
     }
     fn smart_le<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.smart_le_parallelized(lhs.inner_mut(), &mut rhs.inner_mut())
+        self.key.smart_le_parallelized(lhs.bits_mut(), &mut rhs.bits_mut())
     }
     fn smart_gt<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.smart_gt_parallelized(lhs.inner_mut(), &mut rhs.inner_mut())
+        self.key.smart_gt_parallelized(lhs.bits_mut(), &mut rhs.bits_mut())
     }
     fn smart_ge<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.smart_ge_parallelized(lhs.inner_mut(), &mut rhs.inner_mut())
+        self.key.smart_ge_parallelized(lhs.bits_mut(), &mut rhs.bits_mut())
     }
 
     fn unchecked_eq<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.unchecked_eq_parallelized(lhs.inner(), &mut rhs.inner())
+        self.key.unchecked_eq_parallelized(lhs.bits(), &mut rhs.bits())
     }
     fn unchecked_ne<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.unchecked_ne_parallelized(lhs.inner(), &mut rhs.inner())
+        self.key.unchecked_ne_parallelized(lhs.bits(), &mut rhs.bits())
     }
     fn unchecked_lt<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.unchecked_lt_parallelized(lhs.inner(), &mut rhs.inner())
+        self.key.unchecked_lt_parallelized(lhs.bits(), &mut rhs.bits())
     }
     fn unchecked_le<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.unchecked_le_parallelized(lhs.inner(), &mut rhs.inner())
+        self.key.unchecked_le_parallelized(lhs.bits(), &mut rhs.bits())
     }
     fn unchecked_gt<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.unchecked_gt_parallelized(lhs.inner(), &mut rhs.inner())
+        self.key.unchecked_gt_parallelized(lhs.bits(), &mut rhs.bits())
     }
     fn unchecked_ge<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        self.key.unchecked_ge_parallelized(lhs.inner(), &mut rhs.inner())
+        self.key.unchecked_ge_parallelized(lhs.bits(), &mut rhs.bits())
     }
 }
 

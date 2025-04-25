@@ -7,9 +7,9 @@ impl FixedServerKey {
         self.smart_trunc(c, 0)
     }
     fn smart_ceil<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
-        let tmp = self.key.smart_scalar_sub_parallelized(c.inner_mut(), 1u64);
+        let tmp = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1u64);
         let mut res = self.smart_floor(&mut T::new(tmp));
-        self.key.smart_scalar_add_assign_parallelized(res.inner_mut(), 1 << c.frac());
+        self.key.smart_scalar_add_assign_parallelized(res.bits_mut(), 1 << c.frac());
         res
     }
     fn smart_round<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
@@ -17,9 +17,9 @@ impl FixedServerKey {
         if frac == 0{
             return c.clone();
         } // Now we know frac > 0
-        let tmp: Cipher = self.key.smart_scalar_sub_parallelized(c.inner_mut(), 1<<(frac-1));
+        let tmp: Cipher = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1<<(frac-1));
         let mut res = self.smart_floor(&mut T::new(tmp.clone()));
-        self.key.smart_scalar_add_assign_parallelized(res.inner_mut(), 1<<frac);
+        self.key.smart_scalar_add_assign_parallelized(res.bits_mut(), 1<<frac);
         res
     }
     fn smart_trunc<T: FixedCiphertextInner>(&self, c: &mut T, prec: usize) -> T {
@@ -28,10 +28,10 @@ impl FixedServerKey {
             panic!("Prec cannot be greater then the Frac of self!");
         }
         let bits_to_lose = frac - prec;
-        if !c.inner().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.inner_mut());
+        if !c.bits().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.bits_mut());
         }
-        let mut blocks = c.inner().clone().into_blocks();
+        let mut blocks = c.bits().clone().into_blocks();
         blocks.drain(0..bits_to_lose>>1);
         if bits_to_lose % 2 == 1 {
             let block = blocks.drain(0..1).collect::<Vec<Ciphertext>>();

@@ -4,18 +4,18 @@ use tfhe::{integer::{ciphertext::BaseSignedRadixCiphertext, IntegerCiphertext, I
 
 impl FixedServerKey {
     pub(crate) fn smart_abs<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
-        if !c.inner().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.inner_mut());
+        if !c.bits().block_carries_are_empty() {
+            self.key.full_propagate_parallelized(c.bits_mut());
         }
         self.unchecked_abs(c)
     }
 
     pub(crate) fn unchecked_abs<T: FixedCiphertextInner>(&self, c: &T) -> T {
         if T::IS_SIGNED {
-            let len = c.inner().blocks().len();
-            let inner = self.key.cast_to_signed(c.inner().clone(), len);
-            let res_inner = self.key.unchecked_abs_parallelized(&inner);
-            T::new(self.key.cast_to_unsigned(res_inner, len))
+            let len = c.bits().blocks().len();
+            let bits = self.key.cast_to_signed(c.bits().clone(), len);
+            let res_bits = self.key.unchecked_abs_parallelized(&bits);
+            T::new(self.key.cast_to_unsigned(res_bits, len))
         } else {
             c.clone()
         }

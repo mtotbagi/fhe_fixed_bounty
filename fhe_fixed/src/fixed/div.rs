@@ -18,7 +18,7 @@ impl FixedServerKey {
 
     
     pub(crate) fn smart_div_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &mut T) {
-        propagate_if_needed_parallelized(&mut[lhs.inner_mut(), rhs.inner_mut()], &self.key);
+        propagate_if_needed_parallelized(&mut[lhs.bits_mut(), rhs.bits_mut()], &self.key);
         self.unchecked_div_assign(lhs, rhs);
     }
     
@@ -42,12 +42,12 @@ impl FixedServerKey {
         // some helper numbers for ease of use later
         let log_modulus_usize = self.key.message_modulus().0.ilog2() as usize;                          // number of bits in msg
         let blocks_with_frac = (lhs.frac() as usize + log_modulus_usize - 1) / log_modulus_usize;       // number of blocks containing a fractional bit
-        let wide_block_size = lhs.inner().blocks().len() + blocks_with_frac*2;                          // the size of the wide versions in blocks (widness when we have fractional bits)
+        let wide_block_size = lhs.bits().blocks().len() + blocks_with_frac*2;                          // the size of the wide versions in blocks (widness when we have fractional bits)
         let least_used_bit_idx = blocks_with_frac * log_modulus_usize;                                  // the index of the first non-wide bit (so the least bit that is relevant to the result)
         let largest_used_bit_idx = least_used_bit_idx + lhs.size() as usize + lhs.frac() as usize - 1;  // the index of the most significant bit that could be set
 
         // the wide remainder, we will decrease this each iteration if it was still larger than the current Quotient
-        let mut wide_remainder = self.key.extend_radix_with_trivial_zero_blocks_lsb(&lhs.inner(), blocks_with_frac);
+        let mut wide_remainder = self.key.extend_radix_with_trivial_zero_blocks_lsb(&lhs.bits(), blocks_with_frac);
         self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut wide_remainder, blocks_with_frac);
         
         // the result is only needed as wide for ease of indexing later, but this results in practically no performance overhead
@@ -73,7 +73,7 @@ impl FixedServerKey {
                 // since B is always a single bit, we can just shift D by the correct amount to get B*D
                 // first we compute all the within-block shifts, these are the only expensive steps, so we want to do as few as possible
                 let message_mod = self.key.message_modulus().0 as isize;
-                let wide_rhs = self.key.extend_radix_with_trivial_zero_blocks_lsb(rhs.inner(), blocks_with_frac);
+                let wide_rhs = self.key.extend_radix_with_trivial_zero_blocks_lsb(rhs.bits(), blocks_with_frac);
                 let wide_rhs = self.key.extend_radix_with_trivial_zero_blocks_msb(&wide_rhs, blocks_with_frac + 1);
                 let wide_shifted_rhs_vec = 
                     (0..=message_mod).into_par_iter().map(
@@ -101,7 +101,7 @@ impl FixedServerKey {
                 // size - 1 - i > lz_rhs -> this is fewer operations
 
                 // here we just calculate the leading zeros, we can do the comparisons later 
-                self.key.unchecked_leading_zeros_parallelized(rhs.inner())
+                self.key.unchecked_leading_zeros_parallelized(rhs.bits())
             }
         );
 
@@ -181,7 +181,7 @@ impl FixedServerKey {
             // while there are no carries, there is some noise that we should clear
             self.key.key.message_extract_assign(block);
         });
-        *lhs.inner_mut() = narrow_result;
+        *lhs.bits_mut() = narrow_result;
     }
 }
 

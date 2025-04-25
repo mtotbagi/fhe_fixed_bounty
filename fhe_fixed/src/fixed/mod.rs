@@ -45,8 +45,8 @@ impl FixedServerKey {
 }
 
 pub(crate) fn print_if_trivial<T: FixedCiphertext>(c: &T) {
-    if c.inner().is_trivial() {
-        let a: u32 = c.inner().decrypt_trivial().unwrap();
+    if c.bits().is_trivial() {
+        let a: u32 = c.bits().decrypt_trivial().unwrap();
         let size = c.size() as usize;
         println!("Size: {}, Frac: {}, Bits:", c.size(), c.frac());
         println!("{:0size$b}", a);

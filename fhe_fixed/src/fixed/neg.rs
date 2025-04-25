@@ -15,14 +15,14 @@ impl FixedServerKey {
     }
 
     pub(crate) fn smart_neg_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
-        if self.key.is_neg_possible(c.inner()).is_err() {
-            self.key.full_propagate_parallelized(c.inner_mut());
+        if self.key.is_neg_possible(c.bits()).is_err() {
+            self.key.full_propagate_parallelized(c.bits_mut());
         }
         self.unchecked_neg_assign(c)
     }
 
     pub(crate) fn unchecked_neg_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
-        self.key.unchecked_neg_assign(c.inner_mut())
+        self.key.unchecked_neg_assign(c.bits_mut())
     }
 }
 

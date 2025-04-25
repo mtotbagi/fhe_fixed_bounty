@@ -15,15 +15,15 @@ impl FixedServerKey {
     }
 
     pub(crate) fn smart_sub_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &mut T) {
-        if self.key.is_sub_possible(lhs.inner(), rhs.inner()).is_err() {
-            propagate_if_needed_parallelized(&mut[lhs.inner_mut(), rhs.inner_mut()], &self.key);
+        if self.key.is_sub_possible(lhs.bits(), rhs.bits()).is_err() {
+            propagate_if_needed_parallelized(&mut[lhs.bits_mut(), rhs.bits_mut()], &self.key);
         }
         self.unchecked_sub_assign(lhs, rhs);
     }
 
     // TODO WHY IS THERE NO unchecked_sub_assign_parallelized?????????
     pub(crate) fn unchecked_sub_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &T) {
-        self.key.unchecked_sub_assign(lhs.inner_mut(), rhs.inner());
+        self.key.unchecked_sub_assign(lhs.bits_mut(), rhs.bits());
     }
 }
 
