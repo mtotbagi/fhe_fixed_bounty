@@ -41,8 +41,15 @@ mod tests {
 
     use super::*;
     use rand::random;
-    use typenum::{U0, U1, U10, U12, U14, U16, U2, U4, U48, U6, U64, U7, U8};
-    use fixed_crate::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U0F16, U0F64, U0F8, U10F6, U12F4, U14F2, U16F0, U16F48, U1F7, U2F14, U2F6, U32F32, U3F5, U48F16, U4F12, U4F4, U5F3, U64F0, U6F10, U6F2, U7F1, U8F0, U8F8}, FixedU16, FixedU8};
+    use typenum::{U0, U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13,
+        U14, U15, U16, U17, U18, U19, U20, U21, U22, U23, U24, U25, U26, U27, U28, U29, U30, U31, U32,
+        U33, U34, U35, U36, U37, U38, U39, U40, U41, U42, U43, U44, U45, U46, U47, U48, U49, U50, U51,
+        U52, U53, U54, U55, U56, U57, U58, U59, U60, U61, U62, U63, U64, U65, U66, U67, U68, U69, U70,
+        U71, U72, U73, U74, U75, U76, U77, U78, U79, U80, U81, U82, U83, U84, U85, U86, U87, U88, U89,
+        U90, U91, U92, U93, U94, U95, U96, U97, U98, U99, U100, U101, U102, U103, U104, U105, U106,
+        U107, U108, U109, U110, U111, U112, U113, U114, U115, U116, U117, U118, U119, U120, U121, U122,
+        U123, U124, U125, U126, U127, U128};
+    use fixed_crate::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U0F128, U0F16, U0F32, U0F64, U0F8, U10F6, U12F4, U14F18, U14F2, U16F0, U16F48, U1F7, U25F7, U2F14, U2F6, U32F0, U32F32, U3F5, U48F16, U4F12, U4F4, U5F3, U64F0, U6F10, U6F2, U7F1, U8F0, U8F8}, FixedU16, FixedU8};
     use crate::fixed::ArbFixedU;
     use std::sync::LazyLock;
 
@@ -250,17 +257,48 @@ mod tests {
 
     test_bin_op_random_encrypted!(smart_add, wrapping_add,
         (test_add_random_u32f32, U64, U32, U32F32, u64),
-        (test_add_random_u0f64, U64, U64, U0F64, u64),
+        (test_add_random_u0f64, U64, U64, U0F64, u64)
+    );
         
+    test_bin_op_random_encrypted!(smart_mul, wrapping_mul,
         (test_mul_u16f0, U16, U0, U16F0, u16),
         (test_mul_u14f2, U16, U2, U14F2, u16),
-        (test_mul_u12f4, U16, U4, U12F4, u16),
-        (test_mul_u10f6, U16, U6, U10F6, u16),
         (test_mul_u8f8, U16, U8, U8F8, u16),
         (test_mul_u6f10, U16, U10, U6F10, u16),
-        (test_mul_u4f12, U16, U12, U4F12, u16),
-        (test_mul_u2f14, U16, U14, U2F14, u16),
-        (test_mul_u0f16, U16, U16, U0F16, u16)
+        (test_mul_u0f16, U16, U16, U0F16, u16),
+        (test_mul_u0f32, U32, U32, U0F32, u32),
+        (test_mul_u25f7, U32, U7, U25F7, u32),
+        (test_mul_u14f18, U32, U18, U14F18, u32),
+        (test_mul_u32f0, U32, U0, U32F0, u32),
+        (test_mul_u0f64, U64, U64, U0F64, u64),
+        (test_mul_u0f128, U128, U128, U0F128, u128)
+    );
+
+    macro_rules! testing_test_macro {
+        ($MethodName:literal,
+            $(($Size:literal, $Int:literal, $Frac:literal)),*) => {
+                $(
+                    ::paste::paste! {
+                        type Size = ::typenum::[<U $Size>];
+                        type Frac = ::typenum::[<U $Frac>];
+                        type ClearBits = [<u $Size>];
+                        #[test]
+                        fn [<test_ $MethodName _ u $Int f $Frac>]() {
+    
+                            for _ in 0..8 {
+                                let i: ClearBits = random();
+                                let j: ClearBits = random();
+                                test_bin_op!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    Size,Frac,::fixed::types::[<U $Int F $Frac>],false);
+                            }
+                        }
+                    }
+                )*
+            };
+    }
+
+    testing_test_macro!("add",
+        (32, 29, 3)
     );
 
     macro_rules! test_unary_op {
