@@ -44,7 +44,7 @@ mod tests {
     use crate::aliases::{FheU0F8, FheU1F7, FheU4F4, FheU5F3, FheU8F0};
 
     use super::*;
-    use crate::fixed::ArbFixedU;
+    use crate::fixed::{ArbFixedI, ArbFixedU};
     use crate::{FheFixedI, FheFixedU};
     use fixed_crate::{
         FixedU8, FixedU16,
@@ -74,7 +74,7 @@ mod tests {
 
     // This currently only works with size less than 128 bit
     // This type of testing propably can't be implemented for larger than 128 bits
-    // as there the max size for clear fixed is 128 bits.
+    // as the max size for clear fixed is 128 bits.
     // Over that size, we should probably do a few manual test for edge cases
     // (with the expected result hard coded)
 
@@ -122,7 +122,7 @@ mod tests {
             );
         };
     }
-/*
+
     macro_rules! test_bin_op_signed {
         ($LhsBits:expr, $RhsBits:expr,
          $EncryptedMethod:ident, $ClearMethod:ident,
@@ -150,122 +150,110 @@ mod tests {
                 FheFixed::from_bits(rhs_bits, &SKEY),
             );
 
-            let (lhs_fixed, rhs_fixed) =
-                (<$Fixed>::from_bits($LhsBits as _), <$Fixed>::from_bits($RhsBits as));
+            let (lhs_fixed, rhs_fixed) = (
+                <$Fixed>::from_bits($LhsBits as _),
+                <$Fixed>::from_bits($RhsBits as _),
+            );
 
             let clear_res = <$Fixed>::$ClearMethod(lhs_fixed, rhs_fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
             assert_eq!(
-                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                ArbFixedI::<$Size, $Frac>::from(clear_res),
                 decrypted_res,
                 "expected: {}, got: {}, from: {}, {}",
-                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                ArbFixedI::<$Size, $Frac>::from(clear_res),
                 decrypted_res,
                 $LhsBits,
                 $RhsBits
             );
         };
     }
-*/
-    macro_rules! test_bin_op_extensive {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for _ in 0..1024 {
-                        let i: $ClearType = random();
-                        let j: $ClearType = random();
-                        test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
-                    }
-                }
-            )*
-        };
-    }
 
-    macro_rules! test_div_extensive {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for _ in 0..1024 {
-                        let i: $ClearType = random();
-                        let mut j: $ClearType = random();
-                        if j == 0 {j += 1};
-                        test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
-                    }
-                }
-            )*
+    macro_rules! test_bin_op_extensive {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, iter: $Iter:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_extensive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                let j: [<u $Size>] = random();
+                                test_bin_op!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_extensive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                let j: [<u $Size>] = random();
+                                if $MethodName == "div" && j == 0 { continue; }
+                                test_bin_op_signed!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+                    )*
+                )*
+            }
         };
     }
 
     //This is now much easier to generate by script
-    test_bin_op_extensive!(
-        smart_add,
-        wrapping_add,
-        (test_add_extensive_u32f32, U64, U32, U32F32, u64),
-        (test_add_extensive_u0f64, U64, U64, U0F64, u64)
+    test_bin_op_extensive!(method_name: "add",
+        (size: 64, iter: 1024, (0, 32, 64))
     );
 
-    macro_rules! test_bin_op_exhaustive_u8 {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Frac:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for i in 0..=255u8 {
-                        for j in 0..=255u8 {
-                            test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
+    macro_rules! test_bin_op_exhaustive_u8_inner {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                for j in 0..=255u8 {
+                                    test_bin_op!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                        ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                        ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                                }
+                            }
                         }
-                    }
-                }
-            )*
+
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                for j in 0..=255u8 {
+                                    test_bin_op_signed!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                        ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                        ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                                }
+                            }
+                        }
+                    )*
+                )*
+            }
         };
     }
 
-    test_bin_op_exhaustive_u8!(
-        smart_add,
-        wrapping_add,
-        (test_add_exhaustive_u0f8, U8),
-        (test_add_exhaustive_u1f7, U7),
-        (test_add_exhaustive_u2f6, U6),
-        (test_add_exhaustive_u3f5, U5),
-        (test_add_exhaustive_u4f4, U4),
-        (test_add_exhaustive_u5f3, U3),
-        (test_add_exhaustive_u6f2, U2),
-        (test_add_exhaustive_u7f1, U1),
-        (test_add_exhaustive_u8f0, U0)
-    );
-
-    test_bin_op_exhaustive_u8!(
-        smart_sub,
-        wrapping_sub,
-        (test_sub_exhaustive_u0f8, U8),
-        (test_sub_exhaustive_u1f7, U7),
-        (test_sub_exhaustive_u2f6, U6),
-        (test_sub_exhaustive_u3f5, U5),
-        (test_sub_exhaustive_u4f4, U4),
-        (test_sub_exhaustive_u5f3, U3),
-        (test_sub_exhaustive_u6f2, U2),
-        (test_sub_exhaustive_u7f1, U1),
-        (test_sub_exhaustive_u8f0, U0)
-    );
-
-    test_bin_op_exhaustive_u8!(
-        smart_mul,
-        wrapping_mul,
-        (test_mul_exhaustive_u0f8, U8),
-        (test_mul_exhaustive_u1f7, U7),
-        (test_mul_exhaustive_u2f6, U6),
-        (test_mul_exhaustive_u3f5, U5),
-        (test_mul_exhaustive_u4f4, U4),
-        (test_mul_exhaustive_u5f3, U3),
-        (test_mul_exhaustive_u6f2, U2),
-        (test_mul_exhaustive_u7f1, U1),
-        (test_mul_exhaustive_u8f0, U0)
-    );
+    macro_rules! test_bin_op_exhaustive_u8 {
+        (method_name: $MethodName:literal) => {
+            test_bin_op_exhaustive_u8_inner!(method_name: $MethodName, (size: 8, (0,1,2,3,4,5,6,7,8)));
+        };
+    }
+    test_bin_op_exhaustive_u8!(method_name: "add");
+    test_bin_op_exhaustive_u8!(method_name: "sub");
+    test_bin_op_exhaustive_u8!(method_name: "mul");
 
     macro_rules! test_div_exhaustive_u8 {
         ($EncryptedMethod:ident, $ClearMethod:ident,
@@ -298,6 +286,23 @@ mod tests {
         (test_div_exhaustive_u8f0, U0)
     );
 
+    macro_rules! test_div_extensive {
+        ($EncryptedMethod:ident, $ClearMethod:ident,
+        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
+            $(
+                #[test]
+                fn $TestFnName() {
+                    for _ in 0..1024 {
+                        let i: $ClearType = random();
+                        let mut j: $ClearType = random();
+                        if j == 0 {j += 1};
+                        test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
+                    }
+                }
+            )*
+        };
+    }
+
     test_div_extensive!(
         smart_div,
         wrapping_div,
@@ -316,57 +321,21 @@ mod tests {
         (test_div_extensive_u16f48, U64, U48, U16F48, u64),
         (test_div_extensive_u0f64, U64, U64, U0F64, u64)
     );
-
-    // (test_add_extensive_u32f32, U64, U32, U32F32, u64),
-
-    macro_rules! test_bin_op_random_encrypted {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-            $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
-                $(
-                    #[test]
-                    fn $TestFnName() {
-                        for _ in 0..8 {
-                            let i: $ClearType = random();
-                            let j: $ClearType = random();
-                            test_bin_op!(i,j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,false);
-                        }
-                    }
-                )*
-            };
-    }
-
-    test_bin_op_random_encrypted!(
-        smart_add,
-        wrapping_add,
-        (test_add_random_u32f32, U64, U32, U32F32, u64),
-        (test_add_random_u0f64, U64, U64, U0F64, u64)
-    );
-
-    test_bin_op_random_encrypted!(
-        smart_mul,
-        wrapping_mul,
-        (test_mul_u16f0, U16, U0, U16F0, u16),
-        (test_mul_u14f2, U16, U2, U14F2, u16),
-        (test_mul_u8f8, U16, U8, U8F8, u16),
-        (test_mul_u6f10, U16, U10, U6F10, u16),
-        (test_mul_u0f16, U16, U16, U0F16, u16),
-        (test_mul_u0f32, U32, U32, U0F32, u32),
-        (test_mul_u25f7, U32, U7, U25F7, u32),
-        (test_mul_u14f18, U32, U18, U14F18, u32),
-        (test_mul_u32f0, U32, U0, U32F0, u32),
-        (test_mul_u0f64, U64, U64, U0F64, u64),
-        (test_mul_u0f128, U128, U128, U0F128, u128)
-    );
+    // div is not yet done for signed, this can't be used
+    /*test_bin_op_extensive!(method_name: "div",
+        (size: 8, iter:1024, (0,1,2,3,4,5,6,7,8)),
+        (size: 32, iter: 128, (0,32,48,64))
+    );*/
 
     macro_rules! test_binary_op_random_encrypted {
         (method_name: $MethodName:literal,
-            $((size: $Size:literal, iter: $Iter:literal, $($Frac:literal),*)),*) => {
+            $((size: $Size:literal, iter: $Iter:literal, ($($Frac:literal),*))),* $(,)*) => {
             ::paste::paste! {
                 $(
                     $(
                         #[test]
-                        fn [<ttest_ $MethodName _ u $Size f $Frac>]() {
-    
+                        fn [<fixed_test_rand_encrypted_ $MethodName _ u $Size f $Frac>]() {
+
                             for _ in 0..$Iter {
                                 let i: [<u $Size>] = random();
                                 let j: [<u $Size>] = random();
@@ -376,28 +345,42 @@ mod tests {
                             }
                         }
 
-                        /*#[test]
-                        fn [<ttest_ $MethodName _ i $Size f $Frac>]() {
-    
+                        #[test]
+                        fn [<fixed_test_rand_encrypted_ $MethodName _ i $Size f $Frac>]() {
+
                             for _ in 0..$Iter {
                                 let i: [<u $Size>] = random();
                                 let j: [<u $Size>] = random();
+                                if $MethodName == "div" && j == 0 { continue; }
                                 test_bin_op_signed!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
                                     ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                     ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,false);
                             }
-                        }*/
+                        }
                     )*
                 )*
             }
         };
     }
 
-    test_binary_op_random_encrypted!(method_name: "add", 
+    test_binary_op_random_encrypted!(method_name: "add",
         (size: 32, iter: 8,
-            0,1,2,4,7,8,16,29,31,32),
+            (0,1,2,4,7,8,16,29,31,32)),
         (size: 16, iter: 8,
-            0,2,3,5,6,8,12,15,16)
+            (0,2,3,5,6,8,12,15,16)),
+        (size: 64, iter: 8,
+            (0, 32, 48, 57, 64))
+    );
+
+    test_binary_op_random_encrypted!(method_name: "mul",
+        (size: 16, iter:8,
+            (0,1,4,6,8,11,12,16)),
+        (size: 32, iter:8,
+            (0, 7, 18, 32)),
+        (size: 64, iter:2,
+            (0, 32, 64)),
+        /*(size: 128, iter:2,
+            (0, 128))*/
     );
 
     macro_rules! test_unary_op {
@@ -423,144 +406,177 @@ mod tests {
             let clear_res = <$Fixed>::$ClearMethod(fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
-            assert_eq!(ArbFixedU::<$Size, $Frac>::from(clear_res), decrypted_res);
+            assert_eq!(
+                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                "expected: {}, got: {}, from: {}",
+                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                $ClearBits,
+            );
+        };
+    }
+
+    macro_rules! test_unary_op_signed {
+        ($ClearBits:expr,
+         $EncryptedMethod:ident, $ClearMethod:ident,
+         $Size:ty, $Frac:ty, $Fixed:ty,
+         $Trivial_encrypt:expr) => {
+            type FheFixed = FheFixedI<$Size, $Frac>;
+
+            // TODO this generally
+            let num_blocks = <$Size>::USIZE >> 1;
+
+            let encrypted_bits = if $Trivial_encrypt {
+                SKEY.key.create_trivial_radix($ClearBits, num_blocks)
+            } else {
+                CKEY.key.encrypt_radix($ClearBits, num_blocks)
+            };
+
+            let mut lhs = FheFixed::from_bits(encrypted_bits, &SKEY);
+
+            let fixed = <$Fixed>::from_bits($ClearBits as _);
+
+            let clear_res = <$Fixed>::$ClearMethod(fixed);
+            let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &SKEY);
+            let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
+            assert_eq!(
+                ArbFixedI::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                "expected: {}, got: {}, from: {}",
+                ArbFixedI::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                $ClearBits,
+            );
         };
     }
 
     macro_rules! test_unary_op_extensive {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for _ in 0..1024 {
-                        let i: $ClearType = random();
-                        test_unary_op!(i,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
-                    }
-                }
-            )*
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, iter: $Iter:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_extensive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                test_unary_op!(i,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_extensive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                if i >= 1<<($Size-1) { continue; }
+                                test_unary_op_signed!(i,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+                    )*
+                )*
+            }
         };
     }
 
-    test_unary_op_extensive!(
-        smart_sqrt,
-        wrapping_sqrt,
-        (test_sqrt_extensive_u32f32, U64, U32, U32F32, u64),
-        (test_sqrt_extensive_u0f64, U64, U64, U0F64, u64)
+    test_unary_op_extensive!(method_name: "sqrt",
+        (size: 64, iter:1024, (32, 64))
     );
+    test_unary_op_extensive!(method_name: "neg",
+        (size: 64, iter:1024, (32, 64))
+    );
+
+    macro_rules! test_unary_op_exhaustive_u8_inner {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                test_unary_op!(i,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                if i >= 128 && $MethodName == "sqrt" { continue; }
+                                test_unary_op_signed!(i,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+                    )*
+                )*
+            }
+        };
+    }
 
     macro_rules! test_unary_op_exhaustive_u8 {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Frac:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for i in 0..=255u8 {
-                        test_unary_op!(i,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
-                    }
-                }
-            )*
+        (method_name: $MethodName:literal) => {
+            test_unary_op_exhaustive_u8_inner!(method_name: $MethodName, (size: 8, (0,1,2,3,4,5,6,7,8)));
         };
     }
 
-    test_unary_op_exhaustive_u8!(
-        smart_sqrt,
-        wrapping_sqrt,
-        (test_sqrt_exhaustive_u0f8, U8),
-        (test_sqrt_exhaustive_u1f7, U7),
-        (test_sqrt_exhaustive_u2f6, U6),
-        (test_sqrt_exhaustive_u3f5, U5),
-        (test_sqrt_exhaustive_u4f4, U4),
-        (test_sqrt_exhaustive_u5f3, U3),
-        (test_sqrt_exhaustive_u6f2, U2),
-        (test_sqrt_exhaustive_u7f1, U1),
-        (test_sqrt_exhaustive_u8f0, U0)
-    );
-
-    test_unary_op_exhaustive_u8!(
-        smart_floor,
-        wrapping_floor,
-        (test_floor_exhaustive_u0f8, U8),
-        (test_floor_exhaustive_u1f7, U7),
-        (test_floor_exhaustive_u2f6, U6),
-        (test_floor_exhaustive_u3f5, U5),
-        (test_floor_exhaustive_u4f4, U4),
-        (test_floor_exhaustive_u5f3, U3),
-        (test_floor_exhaustive_u6f2, U2),
-        (test_floor_exhaustive_u7f1, U1),
-        (test_floor_exhaustive_u8f0, U0)
-    );
-
-    test_unary_op_exhaustive_u8!(
-        smart_ceil,
-        wrapping_ceil,
-        (test_ceil_exhaustive_u0f8, U8),
-        (test_ceil_exhaustive_u1f7, U7),
-        (test_ceil_exhaustive_u2f6, U6),
-        (test_ceil_exhaustive_u3f5, U5),
-        (test_ceil_exhaustive_u4f4, U4),
-        (test_ceil_exhaustive_u5f3, U3),
-        (test_ceil_exhaustive_u6f2, U2),
-        (test_ceil_exhaustive_u7f1, U1),
-        (test_ceil_exhaustive_u8f0, U0)
-    );
-
-    test_unary_op_exhaustive_u8!(
-        smart_round,
-        wrapping_round,
-        (test_round_exhaustive_u0f8, U8),
-        (test_round_exhaustive_u1f7, U7),
-        (test_round_exhaustive_u2f6, U6),
-        (test_round_exhaustive_u3f5, U5),
-        (test_round_exhaustive_u4f4, U4),
-        (test_round_exhaustive_u5f3, U3),
-        (test_round_exhaustive_u6f2, U2),
-        (test_round_exhaustive_u7f1, U1),
-        (test_round_exhaustive_u8f0, U0)
-    );
-
-    test_unary_op_exhaustive_u8!(
-        smart_neg,
-        wrapping_neg,
-        (test_neg_exhaustive_u0f8, U8),
-        (test_neg_exhaustive_u1f7, U7),
-        (test_neg_exhaustive_u2f6, U6),
-        (test_neg_exhaustive_u3f5, U5),
-        (test_neg_exhaustive_u4f4, U4),
-        (test_neg_exhaustive_u5f3, U3),
-        (test_neg_exhaustive_u6f2, U2),
-        (test_neg_exhaustive_u7f1, U1),
-        (test_neg_exhaustive_u8f0, U0)
-    );
+    test_unary_op_exhaustive_u8!(method_name: "sqrt");
+    test_unary_op_exhaustive_u8!(method_name: "floor");
+    test_unary_op_exhaustive_u8!(method_name: "ceil");
+    test_unary_op_exhaustive_u8!(method_name: "round");
+    test_unary_op_exhaustive_u8!(method_name: "neg");
 
     macro_rules! test_unary_op_random_encrypted {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-            $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, iter: $Iter:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
                 $(
-                    #[test]
-                    fn $TestFnName() {
-                        for _ in 0..8 {
-                            let i: $ClearType = random();
-                            test_unary_op!(i,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,false);
+                    $(
+                        #[test]
+                        fn [<fixed_test_rand_encrypted_ $MethodName _ u $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                test_unary_op!(i,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,false);
+                            }
                         }
-                    }
+
+                        #[test]
+                        fn [<fixed_test_rand_encrypted_ $MethodName _ i $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                if i >= 1<<($Size-1) { continue; }
+                                test_unary_op_signed!(i,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,false);
+                            }
+                        }
+                    )*
                 )*
-            };
+            }
+        };
     }
 
-    test_unary_op_random_encrypted!(
-        smart_neg,
-        wrapping_neg,
-        (test_neg_u16f0, U16, U0, U16F0, u16),
-        (test_neg_u14f2, U16, U2, U14F2, u16),
-        (test_neg_u12f4, U16, U4, U12F4, u16),
-        (test_neg_u10f6, U16, U6, U10F6, u16),
-        (test_neg_u8f8, U16, U8, U8F8, u16),
-        (test_neg_u6f10, U16, U10, U6F10, u16),
-        (test_neg_u4f12, U16, U12, U4F12, u16),
-        (test_neg_u2f14, U16, U14, U2F14, u16),
-        (test_neg_u0f16, U16, U16, U0F16, u16)
+    test_unary_op_random_encrypted!(method_name: "neg",
+        (size: 16, iter: 8, (0,1,2,3,4,6,8,12,15,16))
     );
+    test_unary_op_random_encrypted!(method_name: "sqrt",
+        (size: 16, iter: 8, (0,1,2,3,4,6,8,12,15,16))
+    );
+
     macro_rules! test_sqr {
         ($ClearBits:expr,
          $EncryptedMethod:ident, $ClearMethod:ident,
@@ -584,34 +600,87 @@ mod tests {
             let clear_res = <$Fixed>::$ClearMethod(fixed, fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
-            assert_eq!(ArbFixedU::<$Size, $Frac>::from(clear_res), decrypted_res);
-        };
-    }
-    macro_rules! test_sqr_exhaustive_u8 {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Frac:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for i in 0..=255u8 {
-                        test_sqr!(i,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
-                    }
-                }
-            )*
+            assert_eq!(
+                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                "expected: {}, got: {}, from: {}",
+                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                $ClearBits,
+            );
         };
     }
 
-    test_sqr_exhaustive_u8!(
-        smart_sqr,
-        wrapping_mul,
-        (test_sqr_exhaustive_u0f8, U8),
-        (test_sqr_exhaustive_u1f7, U7),
-        (test_sqr_exhaustive_u2f6, U6),
-        (test_sqr_exhaustive_u3f5, U5),
-        (test_sqr_exhaustive_u4f4, U4),
-        (test_sqr_exhaustive_u5f3, U3),
-        (test_sqr_exhaustive_u6f2, U2),
-        (test_sqr_exhaustive_u7f1, U1),
-        (test_sqr_exhaustive_u8f0, U0)
-    );
+    macro_rules! test_sqr_signed {
+        ($ClearBits:expr,
+         $EncryptedMethod:ident, $ClearMethod:ident,
+         $Size:ty, $Frac:ty, $Fixed:ty,
+         $Trivial_encrypt:expr) => {
+            type FheFixed = FheFixedI<$Size, $Frac>;
+
+            // TODO this generally
+            let num_blocks = <$Size>::USIZE >> 1;
+
+            let encrypted_bits = if $Trivial_encrypt {
+                SKEY.key.create_trivial_radix($ClearBits, num_blocks)
+            } else {
+                CKEY.key.encrypt_radix($ClearBits, num_blocks)
+            };
+
+            let mut lhs = FheFixed::from_bits(encrypted_bits, &SKEY);
+
+            let fixed = <$Fixed>::from_bits($ClearBits as _);
+
+            let clear_res = <$Fixed>::$ClearMethod(fixed, fixed);
+            let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &SKEY);
+            let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
+            assert_eq!(
+                ArbFixedI::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                "expected: {}, got: {}, from: {}",
+                ArbFixedI::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                $ClearBits,
+            );
+        };
+    }
+
+    macro_rules! test_sqr_exhaustive_u8_inner {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                test_sqr!(i,[<smart_ $MethodName>],wrapping_mul,
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                test_sqr_signed!(i,[<smart_ $MethodName>],wrapping_mul,
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+                    )*
+                )*
+            }
+        };
+    }
+
+    macro_rules! test_sqr_exhaustive_u8 {
+        (method_name: $MethodName:literal) => {
+            test_sqr_exhaustive_u8_inner!(method_name: $MethodName, (size: 8, (0,1,2,3,4,5,6,7,8)));
+        };
+    }
+
+    test_sqr_exhaustive_u8!(method_name: "sqr");
 }
