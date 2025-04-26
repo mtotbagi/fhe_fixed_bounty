@@ -23,10 +23,10 @@ mod encrypt_decrypt;
 mod div;
 mod sqrt;
 
-pub(crate) use traits::FixedCiphertextInner;
-pub use traits::FixedCiphertext;
-pub use types::FheFixedU;
 pub use arb_fixed_u::ArbFixedU;
+pub use traits::FixedCiphertext;
+pub(crate) use traits::FixedCiphertextInner;
+pub use types::{FheFixedU, FheFixedI};
 
 
 pub const PARAM: ClassicPBSParameters = tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
