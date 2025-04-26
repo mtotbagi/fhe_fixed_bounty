@@ -7,7 +7,7 @@ use tfhe::shortint::ClassicPBSParameters;
 use tfhe::shortint::parameters::Degree;
 
 pub mod aliases;
-mod arb_fixed_u;
+mod arb_fixed;
 pub mod traits;
 mod types;
 
@@ -23,10 +23,10 @@ mod rounding;
 mod sqrt;
 mod sub;
 
-pub use arb_fixed_u::ArbFixedU;
+pub use arb_fixed::{ArbFixedI, ArbFixedU};
 pub use traits::FixedCiphertext;
 pub(crate) use traits::FixedCiphertextInner;
-pub use types::{FheFixedU, FheFixedI};
+pub use types::{FheFixedI, FheFixedU};
 
 pub const PARAM: ClassicPBSParameters =
     tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;

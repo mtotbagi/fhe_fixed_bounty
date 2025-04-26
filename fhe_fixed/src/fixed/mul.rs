@@ -4,7 +4,9 @@ use crate::{
     traits::{FixedFrac, FixedSize},
 };
 use rayon::prelude::*;
+use tfhe::integer::ciphertext::BaseSignedRadixCiphertext;
 use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey};
+use tfhe::shortint::Ciphertext;
 
 use super::types::FheFixedI;
 
@@ -17,31 +19,51 @@ impl FixedServerKey {
 
     pub(crate) fn unchecked_mul<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> T {
         let blocks_with_frac = (lhs.frac() + 1) >> 1;
-
-        let mut lhs_bits = lhs.bits().clone();
-        let mut rhs_bits = rhs.bits().clone();
-
-        self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
-            &mut lhs_bits,
-            blocks_with_frac as usize,
-        );
-        self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
-            &mut rhs_bits,
-            blocks_with_frac as usize,
-        );
-
-        self.key
-            .unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
-
-        if lhs.frac() % 2 != 0 {
+        if !T::IS_SIGNED {
+            let mut lhs_bits = lhs.bits().clone();
+            let mut rhs_bits = rhs.bits().clone();
+    
+            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
+                &mut lhs_bits,
+                blocks_with_frac as usize,
+            );
+            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
+                &mut rhs_bits,
+                blocks_with_frac as usize,
+            );
+    
             self.key
-                .scalar_left_shift_assign_parallelized(&mut lhs_bits, 1);
+                .unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
+    
+            if lhs.frac() % 2 != 0 {
+                self.key
+                    .scalar_left_shift_assign_parallelized(&mut lhs_bits, 1);
+            }
+    
+            let mut blocks = lhs_bits.into_blocks();
+            blocks.drain(0..blocks_with_frac as usize);
+    
+            T::new(Cipher::from_blocks(blocks))
+        } else {
+            let mut lhs_bits = self.key
+                .cast_to_signed(lhs.bits().clone(),
+                (T::SIZE/2) as usize + blocks_with_frac as usize);
+            let rhs_bits = self.key
+                .cast_to_signed(rhs.bits().clone(),
+                (T::SIZE/2) as usize + blocks_with_frac as usize);
+            self.key
+                .unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
+
+            if lhs.frac() % 2 != 0 {
+                self.key
+                    .scalar_left_shift_assign_parallelized(&mut lhs_bits, 1);
+            }
+
+            let mut blocks = lhs_bits.into_blocks();
+            blocks.drain(0..blocks_with_frac as usize);
+            let signed_res = BaseSignedRadixCiphertext::<Ciphertext>::from_blocks(blocks);
+            T::new(self.key.cast_to_unsigned(signed_res, (T::SIZE/2) as usize))
         }
-
-        let mut blocks = lhs_bits.into_blocks();
-        blocks.drain(0..blocks_with_frac as usize);
-
-        T::new(Cipher::from_blocks(blocks))
     }
 
     pub(crate) fn smart_mul_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) {
@@ -64,24 +86,43 @@ impl FixedServerKey {
 
     pub(crate) fn unchecked_sqr<T: FixedCiphertextInner>(&self, c: &T) -> T {
         let blocks_with_frac = (c.frac() + 1) >> 1;
+        if !T::IS_SIGNED {
+            let mut bits = c.bits().clone();
+    
+            self.key
+                .extend_radix_with_trivial_zero_blocks_msb_assign(&mut bits, blocks_with_frac as usize);
+    
+            smart_sqr_assign(&mut bits, &self.key);
+            if !bits.block_carries_are_empty() {
+                self.key.full_propagate_parallelized(&mut bits);
+            }
+            if c.frac() % 2 != 0 {
+                self.key.scalar_left_shift_assign_parallelized(&mut bits, 1);
+            }
+    
+            let mut blocks = bits.into_blocks();
+            blocks.drain(0..blocks_with_frac as usize);
+    
+            T::new(Cipher::from_blocks(blocks))
+        } else {
 
-        let mut bits = c.bits().clone();
+            let mut bits = self.key
+                .cast_to_signed(c.bits().clone(),
+                    (T::SIZE/2) as usize + blocks_with_frac as usize);
 
-        self.key
-            .extend_radix_with_trivial_zero_blocks_msb_assign(&mut bits, blocks_with_frac as usize);
+            smart_sqr_assign(&mut bits, &self.key);
+            if !bits.block_carries_are_empty() {
+                self.key.full_propagate_parallelized(&mut bits);
+            }
+            if c.frac() % 2 != 0 {
+                self.key.scalar_left_shift_assign_parallelized(&mut bits, 1);
+            }
 
-        smart_sqr_assign(&mut bits, &self.key);
-        if !bits.block_carries_are_empty() {
-            self.key.full_propagate_parallelized(&mut bits);
+            let mut blocks = bits.into_blocks();
+            blocks.drain(0..blocks_with_frac as usize);
+            let signed_res = BaseSignedRadixCiphertext::<Ciphertext>::from_blocks(blocks);
+            T::new(self.key.cast_to_unsigned(signed_res, (T::SIZE/2) as usize))
         }
-        if c.frac() % 2 != 0 {
-            self.key.scalar_left_shift_assign_parallelized(&mut bits, 1);
-        }
-
-        let mut blocks = bits.into_blocks();
-        blocks.drain(0..blocks_with_frac as usize);
-
-        T::new(Cipher::from_blocks(blocks))
     }
 
     pub(crate) fn smart_sqr_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
