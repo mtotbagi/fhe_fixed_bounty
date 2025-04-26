@@ -3,6 +3,8 @@ use tfhe::integer::BooleanBlock;
 use crate::{traits::{FixedFrac, FixedSize}, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 
+use super::types::FheFixedI;
+
 impl FixedServerKey {
 
     fn smart_eq<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
@@ -44,7 +46,9 @@ impl FixedServerKey {
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac> where 
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
     fn smart_eq(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
@@ -85,3 +89,8 @@ Frac: FixedFrac {
         key.unchecked_ge(&mut self.inner, &mut rhs.inner)
     }
 }
+};
+}
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);

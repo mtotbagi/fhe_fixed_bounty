@@ -2,6 +2,8 @@ use crate::{traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use tfhe::{integer::{ciphertext::BaseSignedRadixCiphertext, IntegerCiphertext}, shortint::Ciphertext};
 
+use super::types::FheFixedI;
+
 impl FixedServerKey {
     
     pub(crate) fn smart_ilog2<T: FixedCiphertextInner>(&self, c: &mut T) -> BaseSignedRadixCiphertext<Ciphertext> {
@@ -20,7 +22,9 @@ impl FixedServerKey {
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac> where 
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
     pub fn smart_ilog2(&mut self, key: &FixedServerKey) -> BaseSignedRadixCiphertext<Ciphertext> {
@@ -30,3 +34,8 @@ Frac: FixedFrac {
         key.unchecked_ilog2(&self.inner)
     }
 }
+};
+}
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);

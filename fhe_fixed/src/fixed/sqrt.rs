@@ -3,6 +3,8 @@ use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree};
 
+use super::types::FheFixedI;
+
 impl FixedServerKey {
     pub(crate) fn smart_sqrt<T: FixedCiphertextInner>(&self, lhs: &mut T) -> T {
         let mut result_value = lhs.clone();
@@ -162,7 +164,9 @@ impl FixedServerKey {
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac> where 
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
     pub fn smart_sqrt(&mut self, key: &FixedServerKey) -> Self{
@@ -178,3 +182,8 @@ Frac: FixedFrac {
         key.unchecked_sqrt_assign(&mut self.inner)
     }
 }
+};
+}
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);

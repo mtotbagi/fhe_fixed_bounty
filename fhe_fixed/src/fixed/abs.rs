@@ -2,6 +2,8 @@ use crate::{propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Ci
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use tfhe::{integer::{ciphertext::BaseSignedRadixCiphertext, IntegerCiphertext, IntegerRadixCiphertext}, shortint::Ciphertext};
 
+use super::types::FheFixedI;
+
 impl FixedServerKey {
     pub(crate) fn smart_abs<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
         if !c.bits().block_carries_are_empty() {
@@ -23,7 +25,9 @@ impl FixedServerKey {
     // There is no abs_assign in TFHE, so I also left it out
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac> where 
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
     pub fn smart_abs(&mut self, key: &FixedServerKey) -> Self{
@@ -33,3 +37,8 @@ Frac: FixedFrac {
         Self {inner: key.unchecked_abs(&self.inner) }
     }
 }
+};
+}
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);

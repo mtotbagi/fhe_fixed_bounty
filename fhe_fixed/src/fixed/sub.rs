@@ -1,6 +1,8 @@
 use crate::{propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 
+use super::types::FheFixedI;
+
 impl FixedServerKey {
     pub(crate) fn smart_sub<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
         let mut result_value = lhs.clone();
@@ -27,7 +29,9 @@ impl FixedServerKey {
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac> where 
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
     pub fn smart_sub(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self{
@@ -43,3 +47,8 @@ Frac: FixedFrac {
         key.unchecked_sub_assign(&mut self.inner, &lhs.inner)
     }
 }
+};
+}
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);

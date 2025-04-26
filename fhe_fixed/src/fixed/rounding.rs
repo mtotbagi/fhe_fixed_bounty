@@ -2,6 +2,8 @@ use crate::{traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::Ciphertext};
 
+use super::types::FheFixedI;
+
 impl FixedServerKey {
     fn smart_floor<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
         self.smart_trunc(c, 0)
@@ -46,7 +48,9 @@ impl FixedServerKey {
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac> where 
 Size: FixedSize<Frac>,
 Frac: FixedFrac {
     pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
@@ -62,3 +66,8 @@ Frac: FixedFrac {
         Self { inner: key.smart_trunc(&mut self.inner, prec)}
     }
 }
+};
+}
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);

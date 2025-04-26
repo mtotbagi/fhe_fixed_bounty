@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tfhe = { path = "../tfhe-rs/tfhe", version = "~1.1.0-alpha.0", features = ["boolean", "shortint", "integer"] }
+tfhe = { path = "../tfhe-rs/tfhe", version = "~1.1.0-alpha.0", features = ["boolean", "shortint", "integer", "noise-asserts"] }
 fixed = "1.29"
 typenum = "1.18.0"
 rayon = "1.10.0"
