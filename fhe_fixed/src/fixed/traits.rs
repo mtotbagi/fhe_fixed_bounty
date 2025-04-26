@@ -1,5 +1,7 @@
 use typenum::{Cmp, IsGreaterOrEqual, Same, True, Unsigned, U2, U0, UInt, B0};
 
+use super::Cipher;
+
 mod sealed {
     use super::*;
 
@@ -40,3 +42,20 @@ where
        sealed::HasValidFrac<F>,
     F: FixedFrac,
 {}
+
+
+pub trait FixedCiphertext: Clone + Sync + Send{
+    const IS_SIGNED: bool;
+    const SIZE: u32;
+    const FRAC: u32;
+    fn bits(&self) -> &Cipher;
+    fn into_bits(self) -> Cipher;
+    fn size(&self) -> u32;
+    fn frac(&self) -> u32;
+    fn new(bits: Cipher) -> Self;
+    fn bits_in_block(&self) -> u32;
+}
+
+pub trait FixedCiphertextInner: FixedCiphertext + Clone + Sync + Send{
+    fn bits_mut(&mut self) -> &mut Cipher;
+}

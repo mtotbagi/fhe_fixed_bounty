@@ -7,7 +7,7 @@ use tfhe::integer::{BooleanBlock, IntegerRadixCiphertext};
 use tfhe::integer::{ServerKey, ClientKey};
 
 pub mod aliases;
-pub mod size_frac;
+pub mod traits;
 mod arb_fixed_u;
 mod types;
 
@@ -23,8 +23,9 @@ mod encrypt_decrypt;
 mod div;
 mod sqrt;
 
-pub(crate) use types::FixedCiphertextInner;
-pub use types::{FheFixedU, FixedCiphertext};
+pub(crate) use traits::FixedCiphertextInner;
+pub use traits::FixedCiphertext;
+pub use types::FheFixedU;
 pub use arb_fixed_u::ArbFixedU;
 
 

@@ -1,6 +1,6 @@
 use tfhe::integer::BooleanBlock;
 
-use crate::{size_frac::{FixedFrac, FixedSize}, FixedServerKey};
+use crate::{traits::{FixedFrac, FixedSize}, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 
 impl FixedServerKey {

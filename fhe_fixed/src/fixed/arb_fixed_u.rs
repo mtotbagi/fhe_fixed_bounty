@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use fixed_crate::types::extra::LeEqU128;
 use fixed_crate::FixedU128;
-use crate::size_frac::{FixedFrac, FixedSize};
+use crate::traits::{FixedFrac, FixedSize};
 use typenum::Unsigned;
 use fixed_crate::traits::ToFixed;
 

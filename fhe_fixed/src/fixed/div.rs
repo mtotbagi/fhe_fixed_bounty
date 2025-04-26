@@ -1,4 +1,4 @@
-use crate::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized, size_frac::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
+use crate::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree};

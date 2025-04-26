@@ -1,4 +1,4 @@
-use crate::{propagate_if_needed_parallelized, size_frac::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
+use crate::{propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 
 impl FixedServerKey {

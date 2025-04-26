@@ -1,7 +1,7 @@
 use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext};
 use tfhe::shortint::Ciphertext;
 
-use crate::{size_frac::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
+use crate::{traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::FheFixedU;
 use crate::FixedCiphertext;
 use super::{ArbFixedU, FixedClientKey};

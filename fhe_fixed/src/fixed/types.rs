@@ -1,24 +1,10 @@
 use std::marker::PhantomData;
 use tfhe::integer::IntegerCiphertext;
-use super::{size_frac::{FixedFrac, FixedSize}, ArbFixedU};
+use super::{traits::{FixedFrac, FixedSize, FixedCiphertext, FixedCiphertextInner}, ArbFixedU};
 
 pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint::Ciphertext>;
 
-pub trait FixedCiphertext: Clone + Sync + Send{
-    const IS_SIGNED: bool;
-    const SIZE: u32;
-    const FRAC: u32;
-    fn bits(&self) -> &Cipher;
-    fn into_bits(self) -> Cipher;
-    fn size(&self) -> u32;
-    fn frac(&self) -> u32;
-    fn new(bits: Cipher) -> Self;
-    fn bits_in_block(&self) -> u32;
-}
 
-pub trait FixedCiphertextInner: FixedCiphertext + Clone + Sync + Send{
-    fn bits_mut(&mut self) -> &mut Cipher;
-}
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedU<Size, Frac> {
@@ -95,7 +81,7 @@ Frac: FixedFrac {
     const FRAC: u32 = Frac::U32;
 
     fn bits(&self) -> &Cipher {
-        &self.inner.bits()
+        self.inner.bits()
     }
 
     fn into_bits(self) -> Cipher {

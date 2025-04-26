@@ -1,4 +1,4 @@
-use crate::{size_frac::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
+use crate::{traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::Ciphertext};
 
