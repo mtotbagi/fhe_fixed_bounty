@@ -1,7 +1,8 @@
 use crate::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
-use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree};
+use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree, ServerKey};
+use std::time::Instant;
 
 impl FixedServerKey {
     pub(crate) fn smart_div<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
@@ -59,12 +60,12 @@ impl FixedServerKey {
         
         // two lookup tables used to zero out half the calculations depending on `if R > B*D` (represented by an overflow)
         let zero_out_if_overflow_lut = 
-            self.key.key.generate_lookup_table_bivariate(
-                |block, overflow| if overflow == 0 { block } else { 0 }
+            self.key.key.generate_lookup_table(
+                |block| if block & 1 == 0 { block >> 1 } else { 0 }
             );
         let zero_out_if_no_overflow_lut = 
-            self.key.key.generate_lookup_table_bivariate(
-                |block, overflow| if overflow != 0 { block } else { 0 }
+            self.key.key.generate_lookup_table(
+                |block| if block & 1 != 0 { block >> 1 } else { 0 }
             );
         
         let (shifted_wide_rhs_vec, leading_zeros) = rayon::join(
@@ -133,13 +134,15 @@ impl FixedServerKey {
                             self.key.unchecked_scalar_lt_parallelized(&leading_zeros, cmp_val as u64).into_raw_parts()
                         }
                 });
-            let overflow_happened = self.key.key.unchecked_add(&sub_overflowed.into_raw_parts(), &is_leading_zero);
+            let overflow_happened = self.key.key.unchecked_bitor(&sub_overflowed.into_raw_parts(), &is_leading_zero);
 
             // here we evaluate which branch of the if was taken, by zeroing out the unused branch (the second branch is just the identity)
             rayon::join(
                 || {
                     // compute wether the next bit should be set to 0 or 1, set the degree needed for the subtraction, and set the bit in the result
-                    self.key.key.unchecked_apply_lookup_table_bivariate_assign(&mut guess_block, &overflow_happened, &zero_out_if_overflow_lut);
+                    guess_block = self.key.key.unchecked_add(&guess_block, &guess_block);
+                    self.key.key.unchecked_add_assign(&mut guess_block, &overflow_happened);
+                    self.key.key.apply_lookup_table_assign(&mut guess_block, &zero_out_if_overflow_lut);
                     guess_block.degree = Degree::new(1 << (guess_bit_idx % log_modulus_usize));
                     self.key.key.unchecked_add_assign(&mut wide_result.blocks_mut()[guess_block_idx], &guess_block);
                 }, || {
@@ -148,14 +151,18 @@ impl FixedServerKey {
                         || {
                             //keep the old if overflowed (R < B*D) -> zero if not overflow
                             narrow_remainder_old.blocks_mut().par_iter_mut().for_each( 
-                                |block|
-                                self.key.key.unchecked_apply_lookup_table_bivariate_assign(block, &overflow_happened, &zero_out_if_no_overflow_lut)
-                            );
+                                |block| {
+                                    *block = self.key.key.unchecked_add(block, block);
+                                    self.key.key.unchecked_add_assign(block, &overflow_happened);
+                                    self.key.key.apply_lookup_table_assign(block, &zero_out_if_no_overflow_lut);
+                            });
                         }, || {
                             //keep the new if it didn't overflow (R >= B*D) -> zero if overflow
                             narrow_remainder_new.blocks_mut().par_iter_mut().for_each(
                                 |block| {
-                                    self.key.key.unchecked_apply_lookup_table_bivariate_assign(block, &overflow_happened, &zero_out_if_overflow_lut);
+                                    *block = self.key.key.unchecked_add(block, block);
+                                    self.key.key.unchecked_add_assign(block, &overflow_happened);
+                                    self.key.key.apply_lookup_table_assign(block, &zero_out_if_overflow_lut);
                                     block.degree = Degree::new(0); // the degree of the remainder doesn't matter, so just keep it in check for good measure
                                 }
                             );

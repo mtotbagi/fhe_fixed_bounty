@@ -73,12 +73,17 @@ impl FixedServerKey {
 
         // two lookup tables used to zero out half the calculations depending on `if V > 2*B*R + BS` (represented by an overflow)
         let zero_out_if_overflow_lut = 
-            self.key.key.generate_lookup_table_bivariate(
-                |block, overflow| if overflow == 0 { block } else { 0 }
+            self.key.key.generate_lookup_table(
+                |block| if block & 1 == 0 { block >> 1 } else { 0 }
             );
         let zero_out_if_no_overflow_lut = 
-            self.key.key.generate_lookup_table_bivariate(
-                |block, overflow| if overflow != 0 { block } else { 0 }
+            self.key.key.generate_lookup_table(
+                |block| if block & 1 != 0 { block >> 1 } else { 0 }
+            );
+
+        let guess_overflow_lut = 
+            self.key.key.generate_lookup_table(
+                |block| (block & (self.key.message_modulus().0 - 2)) + if (block & 1) == 0 { block >> 2 } else { 0 }
             );
         
         // main loop, iterates through the index of every result bit that could be set
@@ -116,23 +121,30 @@ impl FixedServerKey {
             rayon::join(
                 || {
                     // compute wether the next bit should be set to 0 or 1, set the degree needed for the subtraction, and set the bit in the result
-                    self.key.key.unchecked_apply_lookup_table_bivariate_assign(&mut guess_block, &overflow_happened, &zero_out_if_overflow_lut);
+                    self.key.key.unchecked_scalar_mul_assign(&mut guess_block, 4);
+                    self.key.key.unchecked_add_assign(&mut guess_block, &overflow_happened);
+                    self.key.key.unchecked_add_assign(&mut guess_block, &wide_result.blocks()[guess_block_idx]);
+                    self.key.key.apply_lookup_table_assign(&mut guess_block, &guess_overflow_lut);
                     guess_block.degree = Degree::new(1 << (guess_bit_idx % log_modulus_usize));
-                    self.key.key.unchecked_add_assign(&mut wide_result.blocks_mut()[guess_block_idx], &guess_block);
+                    wide_result.blocks_mut()[guess_block_idx] = guess_block;
                 }, || {
                     // calculate the new value of V
                     rayon::join(
                         || {
                             //keep the old if overflowed (V < 2*R*B + BS) -> zero if not overflow
                             narrow_remainder_old.blocks_mut().par_iter_mut().for_each( 
-                                |block|
-                                self.key.key.unchecked_apply_lookup_table_bivariate_assign(block, &overflow_happened, &zero_out_if_no_overflow_lut)
-                            );
+                                |block| {
+                                    *block = self.key.key.unchecked_add(block, block);
+                                    self.key.key.unchecked_add_assign(block, &overflow_happened);
+                                    self.key.key.apply_lookup_table_assign(block, &zero_out_if_no_overflow_lut);
+                            });
                         }, || {
                             //keep the new if it didn't overflow (V >= 2*R*B + BS) -> zero if overflow
                             narrow_remainder_new.blocks_mut().par_iter_mut().for_each(
                                 |block| {
-                                    self.key.key.unchecked_apply_lookup_table_bivariate_assign(block, &overflow_happened, &zero_out_if_overflow_lut);
+                                    *block = self.key.key.unchecked_add(block, block);
+                                    self.key.key.unchecked_add_assign(block, &overflow_happened);
+                                    self.key.key.apply_lookup_table_assign(block, &zero_out_if_overflow_lut);
                                     block.degree = Degree::new(0); // the degree of the remainder doesn't matter, so just keep it in check for good measure
                                 }
                             );
