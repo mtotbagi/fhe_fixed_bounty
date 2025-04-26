@@ -5,18 +5,23 @@ use std::time::Instant;
 
 extern crate fixed as fixed_crate;
 
-use fixed_crate::types::{U0F16, U10F6, U11F5, U12F4, U16F0, U8F8};
-use fixed_crate::{FixedU16, FixedU8, FixedU128};
+use fixed_crate::types::{U0F16, U8F8, U10F6, U11F5, U12F4, U16F0};
+use fixed_crate::{FixedU8, FixedU16, FixedU128};
 use tfhe::integer::IntegerCiphertext;
-use typenum::{Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, UInt, Unsigned, B0, B1, U0, U10, U1000, U11, U15, U16, U2, U3, U32, U4, U5, U6, U8};
 use tfhe::shortint::ClassicPBSParameters;
+use typenum::{
+    B0, B1, Bit, Cmp, Diff, IsGreater, IsGreaterOrEqual, PowerOfTwo, Same, True, U0, U2, U3, U4,
+    U5, U6, U8, U10, U11, U15, U16, U32, U1000, UInt, Unsigned,
+};
 
-pub const PARAM: ClassicPBSParameters = tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
+pub const PARAM: ClassicPBSParameters =
+    tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
 pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint::Ciphertext>;
 
-mod fixed;
 mod fhe_testing_macros;
+mod fixed;
 use crate::fixed::*;
+use paste::paste;
 
 fn main() {
     type FracType = U0;
@@ -34,40 +39,47 @@ fn main() {
     );
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::aliases::{FheU0F8, FheU1F7, FheU4F4, FheU5F3, FheU8F0};
 
     use super::*;
-    use rand::random;
-    use typenum::{U0, U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13,
-        U14, U15, U16, U17, U18, U19, U20, U21, U22, U23, U24, U25, U26, U27, U28, U29, U30, U31, U32,
-        U33, U34, U35, U36, U37, U38, U39, U40, U41, U42, U43, U44, U45, U46, U47, U48, U49, U50, U51,
-        U52, U53, U54, U55, U56, U57, U58, U59, U60, U61, U62, U63, U64, U65, U66, U67, U68, U69, U70,
-        U71, U72, U73, U74, U75, U76, U77, U78, U79, U80, U81, U82, U83, U84, U85, U86, U87, U88, U89,
-        U90, U91, U92, U93, U94, U95, U96, U97, U98, U99, U100, U101, U102, U103, U104, U105, U106,
-        U107, U108, U109, U110, U111, U112, U113, U114, U115, U116, U117, U118, U119, U120, U121, U122,
-        U123, U124, U125, U126, U127, U128};
-    use fixed_crate::{traits::ToFixed, types::{extra::{LeEqU128, LeEqU16}, U0F128, U0F16, U0F32, U0F64, U0F8, U10F6, U12F4, U14F18, U14F2, U16F0, U16F48, U1F7, U25F7, U2F14, U2F6, U32F0, U32F32, U3F5, U48F16, U4F12, U4F4, U5F3, U64F0, U6F10, U6F2, U7F1, U8F0, U8F8}, FixedU16, FixedU8};
     use crate::fixed::ArbFixedU;
+    use crate::{FheFixedI, FheFixedU};
+    use fixed_crate::{
+        FixedU8, FixedU16,
+        traits::ToFixed,
+        types::{
+            U0F8, U0F16, U0F32, U0F64, U0F128, U1F7, U2F6, U2F14, U3F5, U4F4, U4F12, U5F3, U6F2,
+            U6F10, U7F1, U8F0, U8F8, U10F6, U12F4, U14F2, U14F18, U16F0, U16F48, U25F7, U32F0,
+            U32F32, U48F16, U64F0,
+            extra::{LeEqU16, LeEqU128},
+        },
+    };
+    use rand::random;
     use std::sync::LazyLock;
+    use typenum::{
+        U0, U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19,
+        U20, U21, U22, U23, U24, U25, U26, U27, U28, U29, U30, U31, U32, U33, U34, U35, U36, U37,
+        U38, U39, U40, U41, U42, U43, U44, U45, U46, U47, U48, U49, U50, U51, U52, U53, U54, U55,
+        U56, U57, U58, U59, U60, U61, U62, U63, U64, U65, U66, U67, U68, U69, U70, U71, U72, U73,
+        U74, U75, U76, U77, U78, U79, U80, U81, U82, U83, U84, U85, U86, U87, U88, U89, U90, U91,
+        U92, U93, U94, U95, U96, U97, U98, U99, U100, U101, U102, U103, U104, U105, U106, U107,
+        U108, U109, U110, U111, U112, U113, U114, U115, U116, U117, U118, U119, U120, U121, U122,
+        U123, U124, U125, U126, U127, U128,
+    };
 
-    static CKEY: LazyLock<FixedClientKey> = LazyLock::new(|| {
-        FixedClientKey::new()
-    });
-    static SKEY: LazyLock<FixedServerKey> = LazyLock::new(|| {
-        FixedServerKey::new(&CKEY)
-    });
+    static CKEY: LazyLock<FixedClientKey> = LazyLock::new(|| FixedClientKey::new());
+    static SKEY: LazyLock<FixedServerKey> = LazyLock::new(|| FixedServerKey::new(&CKEY));
 
     // This currently only works with size less than 128 bit
     // This type of testing propably can't be implemented for larger than 128 bits
-    // as there the max size for clear fixed is 128 bits. 
-    // Over that size, we should probably do a few manual test for edge cases 
+    // as there the max size for clear fixed is 128 bits.
+    // Over that size, we should probably do a few manual test for edge cases
     // (with the expected result hard coded)
 
     macro_rules! test_bin_op {
-        ($LhsBits:expr, $RhsBits:expr, 
+        ($LhsBits:expr, $RhsBits:expr,
          $EncryptedMethod:ident, $ClearMethod:ident,
          $Size:ty, $Frac:ty, $Fixed:ty,
          $Trivial_encrypt:expr) => {
@@ -75,28 +87,34 @@ mod tests {
 
             // TODO this generally
             let num_blocks = <$Size>::USIZE >> 1;
-            
+
             let (lhs_bits, rhs_bits) = if $Trivial_encrypt {
-                (SKEY.key.create_trivial_radix($LhsBits, num_blocks),
-                SKEY.key.create_trivial_radix($RhsBits, num_blocks))
+                (
+                    SKEY.key.create_trivial_radix($LhsBits, num_blocks),
+                    SKEY.key.create_trivial_radix($RhsBits, num_blocks),
+                )
             } else {
-                (CKEY.key.encrypt_radix($LhsBits, num_blocks),
-                 CKEY.key.encrypt_radix($RhsBits, num_blocks))
+                (
+                    CKEY.key.encrypt_radix($LhsBits, num_blocks),
+                    CKEY.key.encrypt_radix($RhsBits, num_blocks),
+                )
             };
 
-            let (mut lhs, mut rhs) = 
-                (FheFixed::from_bits(lhs_bits, &SKEY),
-                 FheFixed::from_bits(rhs_bits, &SKEY));
+            let (mut lhs, mut rhs) = (
+                FheFixed::from_bits(lhs_bits, &SKEY),
+                FheFixed::from_bits(rhs_bits, &SKEY),
+            );
 
-            let (lhs_fixed, rhs_fixed) = 
-                (<$Fixed>::from_bits($LhsBits),
-                 <$Fixed>::from_bits($RhsBits));
+            let (lhs_fixed, rhs_fixed) =
+                (<$Fixed>::from_bits($LhsBits), <$Fixed>::from_bits($RhsBits));
 
             let clear_res = <$Fixed>::$ClearMethod(lhs_fixed, rhs_fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
-            assert_eq!(ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res,
-            "expected: {}, got: {}, from: {}, {}",
+            assert_eq!(
+                ArbFixedU::<$Size, $Frac>::from(clear_res),
+                decrypted_res,
+                "expected: {}, got: {}, from: {}, {}",
                 ArbFixedU::<$Size, $Frac>::from(clear_res),
                 decrypted_res,
                 $LhsBits,
@@ -184,7 +202,9 @@ mod tests {
     }
 
     //This is now much easier to generate by script
-    test_bin_op_extensive!(smart_add, wrapping_add,
+    test_bin_op_extensive!(
+        smart_add,
+        wrapping_add,
         (test_add_extensive_u32f32, U64, U32, U32F32, u64),
         (test_add_extensive_u0f64, U64, U64, U0F64, u64)
     );
@@ -205,7 +225,9 @@ mod tests {
         };
     }
 
-    test_bin_op_exhaustive_u8!(smart_add, wrapping_add,
+    test_bin_op_exhaustive_u8!(
+        smart_add,
+        wrapping_add,
         (test_add_exhaustive_u0f8, U8),
         (test_add_exhaustive_u1f7, U7),
         (test_add_exhaustive_u2f6, U6),
@@ -217,7 +239,9 @@ mod tests {
         (test_add_exhaustive_u8f0, U0)
     );
 
-    test_bin_op_exhaustive_u8!(smart_sub, wrapping_sub,
+    test_bin_op_exhaustive_u8!(
+        smart_sub,
+        wrapping_sub,
         (test_sub_exhaustive_u0f8, U8),
         (test_sub_exhaustive_u1f7, U7),
         (test_sub_exhaustive_u2f6, U6),
@@ -229,7 +253,9 @@ mod tests {
         (test_sub_exhaustive_u8f0, U0)
     );
 
-    test_bin_op_exhaustive_u8!(smart_mul, wrapping_mul,
+    test_bin_op_exhaustive_u8!(
+        smart_mul,
+        wrapping_mul,
         (test_mul_exhaustive_u0f8, U8),
         (test_mul_exhaustive_u1f7, U7),
         (test_mul_exhaustive_u2f6, U6),
@@ -258,7 +284,9 @@ mod tests {
         };
     }
 
-    test_div_exhaustive_u8!(smart_div, wrapping_div,
+    test_div_exhaustive_u8!(
+        smart_div,
+        wrapping_div,
         (test_div_exhaustive_u0f8, U8),
         (test_div_exhaustive_u1f7, U7),
         (test_div_exhaustive_u2f6, U6),
@@ -270,7 +298,9 @@ mod tests {
         (test_div_exhaustive_u8f0, U0)
     );
 
-    test_div_extensive!(smart_div, wrapping_div,
+    test_div_extensive!(
+        smart_div,
+        wrapping_div,
         (test_div_extensive_u8_u8f0, U8, U0, U8F0, u8),
         (test_div_extensive_u8_u7f1, U8, U1, U7F1, u8),
         (test_div_extensive_u8_u6f2, U8, U2, U6F2, u8),
@@ -305,12 +335,16 @@ mod tests {
             };
     }
 
-    test_bin_op_random_encrypted!(smart_add, wrapping_add,
+    test_bin_op_random_encrypted!(
+        smart_add,
+        wrapping_add,
         (test_add_random_u32f32, U64, U32, U32F32, u64),
         (test_add_random_u0f64, U64, U64, U0F64, u64)
     );
-        
-    test_bin_op_random_encrypted!(smart_mul, wrapping_mul,
+
+    test_bin_op_random_encrypted!(
+        smart_mul,
+        wrapping_mul,
         (test_mul_u16f0, U16, U0, U16F0, u16),
         (test_mul_u14f2, U16, U2, U14F2, u16),
         (test_mul_u8f8, U16, U8, U8F8, u16),
@@ -356,7 +390,7 @@ mod tests {
                     )*
                 )*
             }
-            };
+        };
     }
 
     test_binary_op_random_encrypted!(method_name: "add", 
@@ -367,7 +401,7 @@ mod tests {
     );
 
     macro_rules! test_unary_op {
-        ($ClearBits:expr, 
+        ($ClearBits:expr,
          $EncryptedMethod:ident, $ClearMethod:ident,
          $Size:ty, $Frac:ty, $Fixed:ty,
          $Trivial_encrypt:expr) => {
@@ -375,7 +409,7 @@ mod tests {
 
             // TODO this generally
             let num_blocks = <$Size>::USIZE >> 1;
-            
+
             let encrypted_bits = if $Trivial_encrypt {
                 SKEY.key.create_trivial_radix($ClearBits, num_blocks)
             } else {
@@ -389,7 +423,7 @@ mod tests {
             let clear_res = <$Fixed>::$ClearMethod(fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
-            assert_eq!(ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res);
+            assert_eq!(ArbFixedU::<$Size, $Frac>::from(clear_res), decrypted_res);
         };
     }
 
@@ -408,7 +442,9 @@ mod tests {
         };
     }
 
-    test_unary_op_extensive!(smart_sqrt, wrapping_sqrt,
+    test_unary_op_extensive!(
+        smart_sqrt,
+        wrapping_sqrt,
         (test_sqrt_extensive_u32f32, U64, U32, U32F32, u64),
         (test_sqrt_extensive_u0f64, U64, U64, U0F64, u64)
     );
@@ -427,7 +463,9 @@ mod tests {
         };
     }
 
-    test_unary_op_exhaustive_u8!(smart_sqrt, wrapping_sqrt,
+    test_unary_op_exhaustive_u8!(
+        smart_sqrt,
+        wrapping_sqrt,
         (test_sqrt_exhaustive_u0f8, U8),
         (test_sqrt_exhaustive_u1f7, U7),
         (test_sqrt_exhaustive_u2f6, U6),
@@ -439,7 +477,9 @@ mod tests {
         (test_sqrt_exhaustive_u8f0, U0)
     );
 
-    test_unary_op_exhaustive_u8!(smart_floor, wrapping_floor,
+    test_unary_op_exhaustive_u8!(
+        smart_floor,
+        wrapping_floor,
         (test_floor_exhaustive_u0f8, U8),
         (test_floor_exhaustive_u1f7, U7),
         (test_floor_exhaustive_u2f6, U6),
@@ -451,7 +491,9 @@ mod tests {
         (test_floor_exhaustive_u8f0, U0)
     );
 
-    test_unary_op_exhaustive_u8!(smart_ceil, wrapping_ceil,
+    test_unary_op_exhaustive_u8!(
+        smart_ceil,
+        wrapping_ceil,
         (test_ceil_exhaustive_u0f8, U8),
         (test_ceil_exhaustive_u1f7, U7),
         (test_ceil_exhaustive_u2f6, U6),
@@ -463,7 +505,9 @@ mod tests {
         (test_ceil_exhaustive_u8f0, U0)
     );
 
-    test_unary_op_exhaustive_u8!(smart_round, wrapping_round,
+    test_unary_op_exhaustive_u8!(
+        smart_round,
+        wrapping_round,
         (test_round_exhaustive_u0f8, U8),
         (test_round_exhaustive_u1f7, U7),
         (test_round_exhaustive_u2f6, U6),
@@ -475,7 +519,9 @@ mod tests {
         (test_round_exhaustive_u8f0, U0)
     );
 
-    test_unary_op_exhaustive_u8!(smart_neg, wrapping_neg,
+    test_unary_op_exhaustive_u8!(
+        smart_neg,
+        wrapping_neg,
         (test_neg_exhaustive_u0f8, U8),
         (test_neg_exhaustive_u1f7, U7),
         (test_neg_exhaustive_u2f6, U6),
@@ -502,7 +548,9 @@ mod tests {
             };
     }
 
-    test_unary_op_random_encrypted!(smart_neg, wrapping_neg,
+    test_unary_op_random_encrypted!(
+        smart_neg,
+        wrapping_neg,
         (test_neg_u16f0, U16, U0, U16F0, u16),
         (test_neg_u14f2, U16, U2, U14F2, u16),
         (test_neg_u12f4, U16, U4, U12F4, u16),
@@ -514,7 +562,7 @@ mod tests {
         (test_neg_u0f16, U16, U16, U0F16, u16)
     );
     macro_rules! test_sqr {
-        ($ClearBits:expr, 
+        ($ClearBits:expr,
          $EncryptedMethod:ident, $ClearMethod:ident,
          $Size:ty, $Frac:ty, $Fixed:ty,
          $Trivial_encrypt:expr) => {
@@ -522,7 +570,7 @@ mod tests {
 
             // TODO this generally
             let num_blocks = <$Size>::USIZE >> 1;
-            
+
             let encrypted_bits = if $Trivial_encrypt {
                 SKEY.key.create_trivial_radix($ClearBits, num_blocks)
             } else {
@@ -536,7 +584,7 @@ mod tests {
             let clear_res = <$Fixed>::$ClearMethod(fixed, fixed);
             let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &SKEY);
             let decrypted_res = FheFixed::decrypt(&encrypted_res, &CKEY);
-            assert_eq!(ArbFixedU::<$Size,$Frac>::from(clear_res), decrypted_res);
+            assert_eq!(ArbFixedU::<$Size, $Frac>::from(clear_res), decrypted_res);
         };
     }
     macro_rules! test_sqr_exhaustive_u8 {
@@ -553,7 +601,9 @@ mod tests {
         };
     }
 
-    test_sqr_exhaustive_u8!(smart_sqr, wrapping_mul,
+    test_sqr_exhaustive_u8!(
+        smart_sqr,
+        wrapping_mul,
         (test_sqr_exhaustive_u0f8, U8),
         (test_sqr_exhaustive_u1f7, U7),
         (test_sqr_exhaustive_u2f6, U6),

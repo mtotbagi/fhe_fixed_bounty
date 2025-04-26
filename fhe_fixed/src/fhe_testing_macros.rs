@@ -5,7 +5,7 @@ macro_rules! print_request_for_line {
     };
     () => {
         println!("Please give next input:");
-    }
+    };
 }
 
 #[macro_export]
@@ -25,7 +25,6 @@ macro_rules! parse_num {
         $input.trim().parse().expect("Please type a number!")
     };
 }
-
 
 #[macro_export]
 macro_rules! get_input_number {
@@ -49,20 +48,16 @@ macro_rules! get_input_number {
         read_line!(input);
         let $input_name = parse_num!(input);
     };
-    ($input_str:expr) => {
-        {
-            print_request_for_line!($input_str);
-            read_line!(input);
-            parse_num!(input);
-        }
-    };
-    () => {
-        {
-            print_request_for_line!();
-            read_line!(input);
-            parse_num!(input);
-        }
-    };
+    ($input_str:expr) => {{
+        print_request_for_line!($input_str);
+        read_line!(input);
+        parse_num!(input);
+    }};
+    () => {{
+        print_request_for_line!();
+        read_line!(input);
+        parse_num!(input);
+    }};
 }
 
 #[macro_export]
@@ -84,8 +79,18 @@ macro_rules! print_result {
         print_result!(clear, $name, $total_size, $frac_size)
     };
     ($result:expr, $name:expr, $total_size:expr, $frac_size:expr) => {
-        println!("{:0total$.frac$b}", $result, total = $total_size + 1, frac = $frac_size);
-        println!("{}: {:name_length$}", $name, $result, name_length = $total_size - ($name).len() - 1);
+        println!(
+            "{:0total$.frac$b}",
+            $result,
+            total = $total_size + 1,
+            frac = $frac_size
+        );
+        println!(
+            "{}: {:name_length$}",
+            $name,
+            $result,
+            name_length = $total_size - ($name).len() - 1
+        );
     };
 }
 
@@ -118,12 +123,12 @@ macro_rules! test_func_manual {
         measure_print!(
             let result = $func
         ; "computing the result");
-            
+
         println!("Please inspect the results:");
 
         let u = <$Size>::USIZE;
         let f = <$Frac>::USIZE;
-        
+
         $(
             print_result!($client_key, $encrypted, stringify!($encrypted), u, f);
         )*
@@ -140,14 +145,14 @@ macro_rules! test_func_manual {
 #[macro_export]
 macro_rules! meas_start {
     ($name:ident) => {
-       let $name = Instant::now();
+        let $name = Instant::now();
     };
 }
 
 #[macro_export]
 macro_rules! meas_end {
     ($name:ident) => {
-       let elapsed = $name.elapsed();
-       println!("{}: {}", stringify!($name), elapsed.as_nanos()) 
+        let elapsed = $name.elapsed();
+        println!("{}: {}", stringify!($name), elapsed.as_nanos())
     };
 }

@@ -1,6 +1,12 @@
-use crate::{propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
-use tfhe::{integer::{ciphertext::BaseSignedRadixCiphertext, IntegerCiphertext, IntegerRadixCiphertext}, shortint::Ciphertext};
+use crate::{
+    Cipher, FixedServerKey, propagate_if_needed_parallelized,
+    traits::{FixedFrac, FixedSize},
+};
+use tfhe::{
+    integer::{IntegerCiphertext, IntegerRadixCiphertext, ciphertext::BaseSignedRadixCiphertext},
+    shortint::Ciphertext,
+};
 
 use super::types::FheFixedI;
 
@@ -27,17 +33,23 @@ impl FixedServerKey {
 
 macro_rules! fhe_fixed_op {
     ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac> where 
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
-    pub fn smart_abs(&mut self, key: &FixedServerKey) -> Self{
-        Self {inner: key.smart_abs(&mut self.inner) }
-    }
-    pub fn unchecked_abs(&self, key: &FixedServerKey) -> Self {
-        Self {inner: key.unchecked_abs(&self.inner) }
-    }
-}
-};
+        impl<Size, Frac> $FheFixed<Size, Frac>
+        where
+            Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_abs(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_abs(&mut self.inner),
+                }
+            }
+            pub fn unchecked_abs(&self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.unchecked_abs(&self.inner),
+                }
+            }
+        }
+    };
 }
 
 fhe_fixed_op!(FheFixedU);

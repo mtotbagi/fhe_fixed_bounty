@@ -1,5 +1,8 @@
-use crate::{propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
+use crate::{
+    Cipher, FixedServerKey, propagate_if_needed_parallelized,
+    traits::{FixedFrac, FixedSize},
+};
 
 use super::types::FheFixedI;
 
@@ -30,23 +33,29 @@ impl FixedServerKey {
 
 macro_rules! fhe_fixed_op {
     ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac> where 
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
-    pub fn smart_neg(&mut self, key: &FixedServerKey) -> Self{
-        Self {inner: key.smart_neg(&mut self.inner) }
-    }
-    pub fn unchecked_neg(&self, key: &FixedServerKey) -> Self {
-        Self {inner: key.unchecked_neg(&self.inner) }
-    }
-    pub fn smart_neg_assign(&mut self, key: &FixedServerKey){
-        key.smart_neg_assign(&mut self.inner)
-    }
-    pub fn unchecked_neg_assign(&mut self, key: &FixedServerKey){
-        key.unchecked_neg_assign(&mut self.inner)
-    }
-}
-};
+        impl<Size, Frac> $FheFixed<Size, Frac>
+        where
+            Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_neg(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_neg(&mut self.inner),
+                }
+            }
+            pub fn unchecked_neg(&self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.unchecked_neg(&self.inner),
+                }
+            }
+            pub fn smart_neg_assign(&mut self, key: &FixedServerKey) {
+                key.smart_neg_assign(&mut self.inner)
+            }
+            pub fn unchecked_neg_assign(&mut self, key: &FixedServerKey) {
+                key.unchecked_neg_assign(&mut self.inner)
+            }
+        }
+    };
 }
 
 fhe_fixed_op!(FheFixedU);

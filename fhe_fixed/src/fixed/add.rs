@@ -1,5 +1,8 @@
-use crate::{propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
+use crate::{
+    Cipher, FixedServerKey, propagate_if_needed_parallelized,
+    traits::{FixedFrac, FixedSize},
+};
 
 use super::types::FheFixedI;
 
@@ -16,16 +19,16 @@ impl FixedServerKey {
         result_value
     }
 
-    
-    pub(crate) fn smart_add_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &mut T) {
+    pub(crate) fn smart_add_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) {
         if self.key.is_add_possible(lhs.bits(), rhs.bits()).is_err() {
-            propagate_if_needed_parallelized(&mut[lhs.bits_mut(), rhs.bits_mut()], &self.key);
+            propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
         }
         self.unchecked_add_assign(lhs, rhs);
     }
-    
-    pub(crate) fn unchecked_add_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &T) {
-        self.key.unchecked_add_assign_parallelized(lhs.bits_mut(), rhs.bits());
+
+    pub(crate) fn unchecked_add_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &T) {
+        self.key
+            .unchecked_add_assign_parallelized(lhs.bits_mut(), rhs.bits());
     }
 
     pub(crate) fn smart_dbl<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
@@ -53,32 +56,42 @@ impl FixedServerKey {
 
 macro_rules! fhe_fixed_op {
     ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac> where 
-        Size: FixedSize<Frac>,
-        Frac: FixedFrac {
-            pub fn smart_add(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self{
-                Self {inner: key.smart_add(&mut self.inner, &mut lhs.inner) }
+        impl<Size, Frac> $FheFixed<Size, Frac>
+        where
+            Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_add(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_add(&mut self.inner, &mut lhs.inner),
+                }
             }
             pub fn unchecked_add(&self, lhs: &Self, key: &FixedServerKey) -> Self {
-                Self {inner: key.unchecked_add(&self.inner, &lhs.inner) }
+                Self {
+                    inner: key.unchecked_add(&self.inner, &lhs.inner),
+                }
             }
-            pub fn smart_add_assign(&mut self, lhs: &mut Self, key: &FixedServerKey){
+            pub fn smart_add_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
                 key.smart_add_assign(&mut self.inner, &mut lhs.inner)
             }
-            pub fn unchecked_add_assign(&mut self, lhs: &Self, key: &FixedServerKey){
+            pub fn unchecked_add_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
                 key.unchecked_add_assign(&mut self.inner, &lhs.inner)
             }
 
-            pub fn smart_dbl(&mut self, key: &FixedServerKey) -> Self{
-                Self {inner: key.smart_dbl(&mut self.inner) }
+            pub fn smart_dbl(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_dbl(&mut self.inner),
+                }
             }
             pub fn unchecked_dbl(&self, key: &FixedServerKey) -> Self {
-                Self {inner: key.unchecked_dbl(&self.inner) }
+                Self {
+                    inner: key.unchecked_dbl(&self.inner),
+                }
             }
-            pub fn smart_dbl_assign(&mut self, key: &FixedServerKey){
+            pub fn smart_dbl_assign(&mut self, key: &FixedServerKey) {
                 key.smart_dbl_assign(&mut self.inner)
             }
-            pub fn unchecked_dbl_assign(&mut self, key: &FixedServerKey){
+            pub fn unchecked_dbl_assign(&mut self, key: &FixedServerKey) {
                 key.unchecked_dbl_assign(&mut self.inner)
             }
         }

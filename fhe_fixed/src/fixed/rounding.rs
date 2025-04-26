@@ -1,6 +1,12 @@
-use crate::{traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
-use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::Ciphertext};
+use crate::{
+    Cipher, FixedServerKey,
+    traits::{FixedFrac, FixedSize},
+};
+use tfhe::{
+    integer::{IntegerCiphertext, IntegerRadixCiphertext},
+    shortint::Ciphertext,
+};
 
 use super::types::FheFixedI;
 
@@ -11,17 +17,21 @@ impl FixedServerKey {
     fn smart_ceil<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
         let tmp = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1u64);
         let mut res = self.smart_floor(&mut T::new(tmp));
-        self.key.smart_scalar_add_assign_parallelized(res.bits_mut(), 1 << c.frac());
+        self.key
+            .smart_scalar_add_assign_parallelized(res.bits_mut(), 1 << c.frac());
         res
     }
     fn smart_round<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
         let frac = c.frac();
-        if frac == 0{
+        if frac == 0 {
             return c.clone();
         } // Now we know frac > 0
-        let tmp: Cipher = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1<<(frac-1));
+        let tmp: Cipher = self
+            .key
+            .smart_scalar_sub_parallelized(c.bits_mut(), 1 << (frac - 1));
         let mut res = self.smart_floor(&mut T::new(tmp.clone()));
-        self.key.smart_scalar_add_assign_parallelized(res.bits_mut(), 1<<frac);
+        self.key
+            .smart_scalar_add_assign_parallelized(res.bits_mut(), 1 << frac);
         res
     }
     fn smart_trunc<T: FixedCiphertextInner>(&self, c: &mut T, prec: usize) -> T {
@@ -34,7 +44,7 @@ impl FixedServerKey {
             self.key.full_propagate_parallelized(c.bits_mut());
         }
         let mut blocks = c.bits().clone().into_blocks();
-        blocks.drain(0..bits_to_lose>>1);
+        blocks.drain(0..bits_to_lose >> 1);
         if bits_to_lose % 2 == 1 {
             let block = blocks.drain(0..1).collect::<Vec<Ciphertext>>();
             let acc = self.key.key.generate_lookup_table(|x| x & 0b10);
@@ -43,30 +53,41 @@ impl FixedServerKey {
             blocks.insert(0, ct_res);
         }
         let mut cipher = Cipher::from_blocks(blocks);
-        self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut cipher, bits_to_lose>>1);
+        self.key
+            .extend_radix_with_trivial_zero_blocks_lsb_assign(&mut cipher, bits_to_lose >> 1);
         T::new(cipher)
     }
 }
 
 macro_rules! fhe_fixed_op {
     ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac> where 
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
-    pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
-        Self { inner: key.smart_floor(&mut self.inner)}
-    }
-    pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
-        Self { inner: key.smart_ceil(&mut self.inner)}
-    }
-    pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
-        Self { inner: key.smart_round(&mut self.inner)}
-    }
-    pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
-        Self { inner: key.smart_trunc(&mut self.inner, prec)}
-    }
-}
-};
+        impl<Size, Frac> $FheFixed<Size, Frac>
+        where
+            Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_floor(&mut self.inner),
+                }
+            }
+            pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_ceil(&mut self.inner),
+                }
+            }
+            pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_round(&mut self.inner),
+                }
+            }
+            pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_trunc(&mut self.inner, prec),
+                }
+            }
+        }
+    };
 }
 
 fhe_fixed_op!(FheFixedU);

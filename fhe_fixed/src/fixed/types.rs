@@ -1,46 +1,51 @@
+use super::{
+    ArbFixedU,
+    traits::{FixedCiphertext, FixedCiphertextInner, FixedFrac, FixedSize},
+};
 use std::marker::PhantomData;
 use tfhe::integer::IntegerCiphertext;
-use super::{traits::{FixedFrac, FixedSize, FixedCiphertext, FixedCiphertextInner}, ArbFixedU};
 
 pub type Cipher = tfhe::integer::ciphertext::BaseRadixCiphertext<tfhe::shortint::Ciphertext>;
-
-
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedU<Size, Frac> {
     bits: Cipher,
     phantom1: PhantomData<Size>,
-    phantom2: PhantomData<Frac>
+    phantom2: PhantomData<Frac>,
 }
 
 #[derive(Clone)]
 pub struct FheFixedU<Size, Frac> {
-    pub(crate) inner: InnerFheFixedU<Size, Frac>
+    pub(crate) inner: InnerFheFixedU<Size, Frac>,
 }
-
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedI<Size, Frac> {
     bits: Cipher,
     phantom1: PhantomData<Size>,
-    phantom2: PhantomData<Frac>
+    phantom2: PhantomData<Frac>,
 }
 
 #[derive(Clone)]
 pub struct FheFixedI<Size, Frac> {
-    pub(crate) inner: InnerFheFixedI<Size, Frac>
+    pub(crate) inner: InnerFheFixedI<Size, Frac>,
 }
-
 
 impl<Size, Frac> InnerFheFixedU<Size, Frac> {
     fn new(bits: Cipher) -> Self {
-        Self { bits, phantom1: PhantomData, phantom2: PhantomData }
+        Self {
+            bits,
+            phantom1: PhantomData,
+            phantom2: PhantomData,
+        }
     }
 }
 
-impl<Size, Frac> FixedCiphertext for InnerFheFixedU<Size, Frac> where
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
+impl<Size, Frac> FixedCiphertext for InnerFheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
     const IS_SIGNED: bool = false;
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
@@ -75,9 +80,11 @@ Frac: FixedFrac {
     }
 }
 
-impl<Size, Frac> FixedCiphertextInner for InnerFheFixedU<Size, Frac> where
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
+impl<Size, Frac> FixedCiphertextInner for InnerFheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
     fn bits_mut(&mut self) -> &mut Cipher {
         &mut self.bits
     }
@@ -85,13 +92,19 @@ Frac: FixedFrac {
 
 impl<Size, Frac> InnerFheFixedI<Size, Frac> {
     fn new(bits: Cipher) -> Self {
-        Self { bits, phantom1: PhantomData, phantom2: PhantomData }
+        Self {
+            bits,
+            phantom1: PhantomData,
+            phantom2: PhantomData,
+        }
     }
 }
 
-impl<Size, Frac> FixedCiphertext for InnerFheFixedI<Size, Frac> where
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
+impl<Size, Frac> FixedCiphertext for InnerFheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
     const IS_SIGNED: bool = true;
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
@@ -126,23 +139,28 @@ Frac: FixedFrac {
     }
 }
 
-impl<Size, Frac> FixedCiphertextInner for InnerFheFixedI<Size, Frac> where
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
+impl<Size, Frac> FixedCiphertextInner for InnerFheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
     fn bits_mut(&mut self) -> &mut Cipher {
         &mut self.bits
     }
 }
 
-
 impl<Size, Frac> FheFixedU<Size, Frac> {
     pub fn new(bits: Cipher) -> FheFixedU<Size, Frac> {
-        FheFixedU { inner: InnerFheFixedU::new(bits) }
+        FheFixedU {
+            inner: InnerFheFixedU::new(bits),
+        }
     }
 }
-impl<Size, Frac> FixedCiphertext for FheFixedU<Size, Frac> where
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
+impl<Size, Frac> FixedCiphertext for FheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
     const IS_SIGNED: bool = false;
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
@@ -174,12 +192,16 @@ Frac: FixedFrac {
 
 impl<Size, Frac> FheFixedI<Size, Frac> {
     pub fn new(bits: Cipher) -> Self {
-        Self { inner: InnerFheFixedI::new(bits) }
+        Self {
+            inner: InnerFheFixedI::new(bits),
+        }
     }
 }
-impl<Size, Frac> FixedCiphertext for FheFixedI<Size, Frac> where
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
+impl<Size, Frac> FixedCiphertext for FheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
     const IS_SIGNED: bool = true;
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
