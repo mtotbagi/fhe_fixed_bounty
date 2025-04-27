@@ -168,12 +168,7 @@ impl FixedServerKey {
             sqr_bit_idx -= 2;
         }
         // discard unused part of the result, and return the rest
-        let mut narrow_result = Cipher::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
-        narrow_result.blocks_mut().par_iter_mut().for_each(|block| {
-            // while there are no carries, there is some noise that we should clear
-            self.key.key.message_extract_assign(block);
-        });
-        *c.bits_mut() = narrow_result;
+        *c.bits_mut() = Cipher::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
     }
 }
 
