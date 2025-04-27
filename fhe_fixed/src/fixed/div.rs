@@ -1,7 +1,7 @@
 use crate::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
-use crate::fixed::{FheFixedU, FixedCiphertextInner};
+use crate::fixed::{FheFixedU, FheFixedI, FixedCiphertextInner};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
-use tfhe::{integer::{IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree, ServerKey};
+use tfhe::{integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree, ServerKey};
 use std::time::Instant;
 
 impl FixedServerKey {
@@ -17,13 +17,58 @@ impl FixedServerKey {
         result_value
     }
 
-    
     pub(crate) fn smart_div_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &mut T) {
         propagate_if_needed_parallelized(&mut[lhs.bits_mut(), rhs.bits_mut()], &self.key);
         self.unchecked_div_assign(lhs, rhs);
     }
-    
+
     pub(crate) fn unchecked_div_assign<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &T) {
+        if T::IS_SIGNED {
+            //cast both to unsigned with absolute value
+            let mut rhs_abs = rhs.clone();
+            let mut lhs_abs = lhs.clone();
+            rayon::join(
+                || {
+                    rhs_abs = self.unchecked_abs(&rhs_abs);
+                }, || {
+                    lhs_abs = self.unchecked_abs(&lhs_abs);
+                }
+            );
+
+            // do the division, and calculate the sign bit
+            let (_, sign_bits_are_different) = rayon::join(
+                || {
+                    self.unchecked_unsigned_div_assign_rem(&mut lhs_abs, &rhs_abs);
+                }, || {
+                    let sign_bit_pos = self.key.key.message_modulus.0.ilog2() - 1;
+                    let compare_sign_bits = |x, y| {
+                        let x_sign_bit = (x >> sign_bit_pos) & 1;
+                        let y_sign_bit = (y >> sign_bit_pos) & 1;
+                        u64::from(x_sign_bit != y_sign_bit)
+                    };
+                    let lut = self.key.key.generate_lookup_table_bivariate(compare_sign_bits);
+                    BooleanBlock::new_unchecked(self.key.key.unchecked_apply_lookup_table_bivariate(
+                        lhs.bits().blocks().last().unwrap(),
+                        rhs.bits().blocks().last().unwrap(),
+                        &lut,
+                    ))
+                });
+
+            // fix sign of result
+            let negated_lhs = self.key.neg_parallelized(lhs_abs.bits());
+
+            *lhs.bits_mut() = self.key.unchecked_if_then_else_parallelized(
+                &sign_bits_are_different,
+                &negated_lhs,
+                &lhs_abs.bits()
+            );
+        } else {
+            self.unchecked_unsigned_div_assign_rem(lhs, rhs);
+        }
+    }
+    
+    /// Does wrapping division, assigns the quotient and returns the remainder.
+    fn unchecked_unsigned_div_assign_rem<T: FixedCiphertextInner> (&self, lhs: &mut T, rhs: &T) -> T {
         // Pseudo code of the algorithm used:
         // div(N, D)
         // R = N.clone()                    -- we use this as a remainder, but don't change the input
@@ -185,27 +230,47 @@ impl FixedServerKey {
         }
         // discard unused part of the result, and return the rest
         let mut narrow_result = Cipher::from_blocks(wide_result.into_blocks()[..narrow_block_size].to_vec());
-        narrow_result.blocks_mut().par_iter_mut().for_each(|block| {
-            // while there are no carries, there is some noise that we should clear
-            self.key.key.message_extract_assign(block);
-        });
+        let mut narrow_remainder = Cipher::from_blocks(wide_remainder.into_blocks()[..narrow_block_size].to_vec());
+        rayon::join(
+            || {
+                narrow_result.blocks_mut().par_iter_mut().for_each(|block| {
+                    // while there are no carries, there is some noise that we should clear
+                    self.key.key.message_extract_assign(block);
+                });
+            }, || {
+                narrow_remainder.blocks_mut().par_iter_mut().for_each(|block| {
+                    // while there are no carries, there is some noise that we should clear
+                    self.key.key.message_extract_assign(block);
+                });
+            }
+        );
         *lhs.bits_mut() = narrow_result;
+        T::new(narrow_remainder)
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac> where 
-Size: FixedSize<Frac>,
-Frac: FixedFrac {
-    pub fn smart_div(&mut self, rhs: &mut Self, key: &FixedServerKey) -> Self{
-        Self {inner: key.smart_div(&mut self.inner, &mut rhs.inner) }
-    }
-    pub fn unchecked_div(&self, rhs: &Self, key: &FixedServerKey) -> Self {
-        Self {inner: key.unchecked_div(&self.inner, &rhs.inner) }
-    }
-    pub fn smart_div_assign(&mut self, rhs: &mut Self, key: &FixedServerKey){
-        key.smart_div_assign(&mut self.inner, &mut rhs.inner)
-    }
-    pub fn unchecked_div_assign(&mut self, rhs: &Self, key: &FixedServerKey){
-        key.unchecked_div_assign(&mut self.inner, &rhs.inner)
-    }
+macro_rules! fhe_fixed_op {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac>
+        where
+            Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_div(&mut self, rhs: &mut Self, key: &FixedServerKey) -> Self{
+                Self {inner: key.smart_div(&mut self.inner, &mut rhs.inner) }
+            }
+            pub fn unchecked_div(&self, rhs: &Self, key: &FixedServerKey) -> Self {
+                Self {inner: key.unchecked_div(&self.inner, &rhs.inner) }
+            }
+            pub fn smart_div_assign(&mut self, rhs: &mut Self, key: &FixedServerKey){
+                key.smart_div_assign(&mut self.inner, &mut rhs.inner)
+            }
+            pub fn unchecked_div_assign(&mut self, rhs: &Self, key: &FixedServerKey){
+                key.unchecked_div_assign(&mut self.inner, &rhs.inner)
+            }
+        }
+    };
 }
+
+fhe_fixed_op!(FheFixedU);
+fhe_fixed_op!(FheFixedI);
