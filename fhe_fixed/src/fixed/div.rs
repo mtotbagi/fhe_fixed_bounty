@@ -41,15 +41,17 @@ impl FixedServerKey {
         //      B >>= 1
         
         // some helper numbers for ease of use later
-        let log_modulus_usize = self.key.message_modulus().0.ilog2() as usize;                          // number of bits in msg
-        let blocks_with_frac = (lhs.frac() as usize + log_modulus_usize - 1) / log_modulus_usize;       // number of blocks containing a fractional bit
-        let wide_block_size = lhs.bits().blocks().len() + blocks_with_frac*2;                          // the size of the wide versions in blocks (widness when we have fractional bits)
-        let least_used_bit_idx = blocks_with_frac * log_modulus_usize;                                  // the index of the first non-wide bit (so the least bit that is relevant to the result)
-        let largest_used_bit_idx = least_used_bit_idx + lhs.size() as usize + lhs.frac() as usize - 1;  // the index of the most significant bit that could be set
-
+        let log_modulus_usize = self.key.message_modulus().0.ilog2() as usize;                      // number of bits in msg
+        let blocks_with_frac = (lhs.frac() as usize + log_modulus_usize - 1) / log_modulus_usize;   // number of blocks containing a fractional bit
+        let narrow_block_size = lhs.bits().blocks().len();                                          // the size of the wide versions in blocks (widness when we have fractional bits)
+        let wide_block_size = narrow_block_size + blocks_with_frac;                                 // the size of the wide versions in blocks (widness when we have fractional bits)
+        let largest_used_bit_idx = lhs.size() as usize + lhs.frac() as usize - 1;                   // the index of the most significant bit that could be set
+        
         // the wide remainder, we will decrease this each iteration if it was still larger than the current Quotient
-        let mut wide_remainder = self.key.extend_radix_with_trivial_zero_blocks_lsb(&lhs.bits(), blocks_with_frac);
-        self.key.extend_radix_with_trivial_zero_blocks_msb_assign(&mut wide_remainder, blocks_with_frac);
+        // it needs to be extended to handle the differning behaviour of fractional bits
+        let mut wide_remainder = lhs.bits().clone();
+        self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut wide_remainder, blocks_with_frac);
+        if lhs.frac() % 2 == 1 {self.key.unchecked_scalar_right_shift_assign(&mut wide_remainder, 1);}
         
         // the result is only needed as wide for ease of indexing later, but this results in practically no performance overhead
         let mut wide_result: Cipher = self.key.create_trivial_zero_radix(wide_block_size);
@@ -74,8 +76,7 @@ impl FixedServerKey {
                 // since B is always a single bit, we can just shift D by the correct amount to get B*D
                 // first we compute all the within-block shifts, these are the only expensive steps, so we want to do as few as possible
                 let message_mod = self.key.message_modulus().0 as isize;
-                let wide_rhs = self.key.extend_radix_with_trivial_zero_blocks_lsb(rhs.bits(), blocks_with_frac);
-                let wide_rhs = self.key.extend_radix_with_trivial_zero_blocks_msb(&wide_rhs, blocks_with_frac + 1);
+                let wide_rhs = self.key.extend_radix_with_trivial_zero_blocks_msb(&rhs.bits(), blocks_with_frac + 1);
                 let wide_shifted_rhs_vec = 
                     (0..=message_mod).into_par_iter().map(
                         |idx| {
@@ -85,11 +86,10 @@ impl FixedServerKey {
                     ).collect::<Vec<_>>();
                 
                 // once we have all the in-block shifts we compute all the full shifts too
-                (least_used_bit_idx..=largest_used_bit_idx).into_par_iter().map(
+                (0..=largest_used_bit_idx as isize).into_par_iter().map(
                     |idx| {
-                        let shift_amount_signed = idx as isize - least_used_bit_idx as isize - lhs.frac() as usize as isize; //same as shift amount calculation later
-                        let mod_of_shift = (shift_amount_signed % message_mod + message_mod) % message_mod;
-                        let shift_amount_signed = shift_amount_signed - mod_of_shift;
+                        let mod_of_shift = (idx % message_mod + message_mod) % message_mod;
+                        let shift_amount_signed = idx - mod_of_shift;
                         let wider_shifted = unchecked_signed_scalar_left_shift_parallelized(&self.key, &wide_shifted_rhs_vec[mod_of_shift as usize], shift_amount_signed);
                         Cipher::from_blocks(wider_shifted.blocks()[..wider_shifted.blocks().len() - 1].to_vec())
                     }
@@ -107,19 +107,16 @@ impl FixedServerKey {
         );
 
         // main loop, iterates through the index of every result bit that could be set
-        for guess_bit_idx in (least_used_bit_idx..=largest_used_bit_idx).rev() {
+        for guess_bit_idx in (0..=largest_used_bit_idx).rev() {
             // we assign some more helper vars
-            let guess_block_idx = guess_bit_idx / log_modulus_usize;
-            let shift_amount_signed = guess_bit_idx as isize - least_used_bit_idx as isize - lhs.frac() as usize as isize;
-            let ls_used_bit_idx = (least_used_bit_idx as isize + shift_amount_signed) as usize;
-            let ls_used_block_idx = ls_used_bit_idx / log_modulus_usize;
+            let ls_used_block_idx = guess_bit_idx / log_modulus_usize;
 
             // in each loop we only operate on the sub-parts of the ciphers that could be non-zero, so we drop unneeded parts
             let mut narrow_remainder_old = Cipher::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
-            let mut guess_block = guess_radix.blocks()[guess_block_idx].clone();    // they are created as entire ciphers, since there is no convenient block-rotate
+            let mut guess_block = guess_radix.blocks()[ls_used_block_idx].clone();    // they are created as entire ciphers, since there is no convenient block-rotate
             
             // this is B*D, since we already computed these, we can just get the correct one, and trim it to the correct length
-            let narrow_rhs_shifted = Cipher::from(shifted_wide_rhs_vec[guess_bit_idx-least_used_bit_idx].blocks()[ls_used_block_idx..].to_vec());
+            let narrow_rhs_shifted = Cipher::from(shifted_wide_rhs_vec[guess_bit_idx].blocks()[ls_used_block_idx..].to_vec());
 
             // calculate R - B*D and R >= B*D also check if the current bit is guaranteed to be a leading zero      (the new value of R, and the guard of the if-stmt)
             let ((mut narrow_remainder_new, sub_overflowed), is_leading_zero) = 
@@ -127,13 +124,17 @@ impl FixedServerKey {
                     || {
                         self.key.unchecked_unsigned_overflowing_sub_parallelized(&narrow_remainder_old, &narrow_rhs_shifted)
                     }, || {
-                        let cmp_val = lhs.size() as isize - (largest_used_bit_idx - guess_bit_idx) as isize - 1;
+                        let total_size = lhs.size() as isize + lhs.frac() as isize - (blocks_with_frac * log_modulus_usize) as isize;
+                        let inverse_idx = (largest_used_bit_idx - guess_bit_idx) as isize;
+                        let cmp_val = total_size - 1 - inverse_idx;
                         if cmp_val < 1 {
                             self.key.key.create_trivial(0)
                         } else {
                             self.key.unchecked_scalar_lt_parallelized(&leading_zeros, cmp_val as u64).into_raw_parts()
                         }
                 });
+            // IMPORTANT --------- if we can get the two booleans below to be in the carry-space without any extra noise, than this could be an add
+            // which would result in a major speed gain. This would also require some changes in the lookup tables and the way they are called.
             let overflow_happened = self.key.key.unchecked_bitor(&sub_overflowed.into_raw_parts(), &is_leading_zero);
 
             // here we evaluate which branch of the if was taken, by zeroing out the unused branch (the second branch is just the identity)
@@ -144,7 +145,7 @@ impl FixedServerKey {
                     self.key.key.unchecked_add_assign(&mut guess_block, &overflow_happened);
                     self.key.key.apply_lookup_table_assign(&mut guess_block, &zero_out_if_overflow_lut);
                     guess_block.degree = Degree::new(1 << (guess_bit_idx % log_modulus_usize));
-                    self.key.key.unchecked_add_assign(&mut wide_result.blocks_mut()[guess_block_idx], &guess_block);
+                    self.key.key.unchecked_add_assign(&mut wide_result.blocks_mut()[ls_used_block_idx], &guess_block);
                 }, || {
                     // calculate the new value of R
                     rayon::join(
@@ -183,7 +184,7 @@ impl FixedServerKey {
             self.key.unchecked_scalar_right_shift_assign_parallelized(&mut guess_radix, 1);
         }
         // discard unused part of the result, and return the rest
-        let mut narrow_result = Cipher::from_blocks(wide_result.into_blocks()[blocks_with_frac..wide_block_size-blocks_with_frac].to_vec());
+        let mut narrow_result = Cipher::from_blocks(wide_result.into_blocks()[..narrow_block_size].to_vec());
         narrow_result.blocks_mut().par_iter_mut().for_each(|block| {
             // while there are no carries, there is some noise that we should clear
             self.key.key.message_extract_assign(block);

@@ -121,6 +121,7 @@ impl FixedServerKey {
             rayon::join(
                 || {
                     // compute wether the next bit should be set to 0 or 1, set the degree needed for the subtraction, and set the bit in the result
+                    // we also need to make sure that the noise level is nominal
                     self.key.key.unchecked_scalar_mul_assign(&mut guess_block, 4);
                     self.key.key.unchecked_add_assign(&mut guess_block, &overflow_happened);
                     self.key.key.unchecked_add_assign(&mut guess_block, &wide_result.blocks()[guess_block_idx]);
