@@ -5,7 +5,7 @@ use crate::{
 };
 use rayon::prelude::*;
 use tfhe::integer::ciphertext::BaseSignedRadixCiphertext;
-use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey};
+use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey, SignedRadixCiphertext};
 use tfhe::shortint::Ciphertext;
 
 use super::types::FheFixedI;
@@ -45,12 +45,12 @@ impl FixedServerKey {
     
             T::new(Cipher::from_blocks(blocks))
         } else {
-            let mut lhs_bits = self.key
-                .cast_to_signed(lhs.bits().clone(),
-                (T::SIZE/2) as usize + blocks_with_frac as usize);
-            let rhs_bits = self.key
-                .cast_to_signed(rhs.bits().clone(),
-                (T::SIZE/2) as usize + blocks_with_frac as usize);
+            let mut lhs_bits = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
+            self.key.extend_radix_with_sign_msb_assign(&mut lhs_bits, blocks_with_frac as usize);
+
+            let mut rhs_bits = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
+            self.key.extend_radix_with_sign_msb_assign(&mut rhs_bits, blocks_with_frac as usize);
+
             self.key
                 .unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
 
@@ -61,8 +61,8 @@ impl FixedServerKey {
 
             let mut blocks = lhs_bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
-            let signed_res = BaseSignedRadixCiphertext::<Ciphertext>::from_blocks(blocks);
-            T::new(self.key.cast_to_unsigned(signed_res, (T::SIZE/2) as usize))
+            let signed_res = Cipher::from_blocks(blocks);
+            T::new(signed_res)
         }
     }
 
