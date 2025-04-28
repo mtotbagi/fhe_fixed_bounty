@@ -106,10 +106,8 @@ impl FixedServerKey {
             T::new(Cipher::from_blocks(blocks))
         } else {
 
-            let mut bits = self.key
-                .cast_to_signed(c.bits().clone(),
-                    (T::SIZE/2) as usize + blocks_with_frac as usize);
-
+            let mut bits = SignedRadixCiphertext::from_blocks(c.bits().clone().into_blocks());
+            self.key.extend_radix_with_sign_msb_assign(&mut bits, blocks_with_frac as usize);
             smart_sqr_assign(&mut bits, &self.key);
             if !bits.block_carries_are_empty() {
                 self.key.full_propagate_parallelized(&mut bits);
@@ -120,9 +118,8 @@ impl FixedServerKey {
 
             let mut blocks = bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
-            let signed_res = BaseSignedRadixCiphertext::<Ciphertext>::from_blocks(blocks);
-            T::new(self.key.cast_to_unsigned(signed_res, (T::SIZE/2) as usize))
-        }
+            let signed_res = Cipher::from_blocks(blocks);
+            T::new(signed_res)}
     }
 
     pub(crate) fn smart_sqr_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
