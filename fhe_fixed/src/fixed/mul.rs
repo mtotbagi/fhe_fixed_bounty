@@ -199,22 +199,24 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
         key.full_propagate_parallelized(c);
     }
 
-    // This computes the terms a_i*a_j, where i != j, and a_i, a_j are the blocks of c
-    let terms = compute_terms_for_sqr_low(c, key);
-
-    // we calculate the terms a_i * a_i, and add them together into a single ciphertext
-    let same_terms = compute_block_sqrs::<T>(c, key);
-
-    if let Some(result) = key.unchecked_sum_ciphertexts_vec_parallelized(terms) {
-        *c = result
-    } else {
-        key.create_trivial_zero_assign_radix(c)
-    }
+    let (terms_sum, same_terms) = rayon::join(
+        // This computes the terms a_i*a_j, where i != j, and a_i, a_j are the blocks of c
+        || {
+            let terms = compute_terms_for_sqr_low(c, key);
+            let option_sum = key.unchecked_sum_ciphertexts_vec_parallelized(terms);
+            match option_sum {
+                None => key.create_trivial_zero_radix(c.blocks().len()),
+                Some(sum) => sum
+            }
+        },
+        // we calculate the terms a_i * a_i, and add them together into a single ciphertext
+        || compute_block_sqrs::<T>(c, key)
+    );
 
     // This may be done with a left shift, but that is more expensive
     // The two unchecked add is valid, because before the addition every carry is clear
     // and at every block the sum is at most 3+3+3 < 15
-    *c = key.unchecked_add(c, c);
+    *c = key.unchecked_add(&terms_sum, &terms_sum);
     key.unchecked_add_assign(c, &same_terms);
 }
 
