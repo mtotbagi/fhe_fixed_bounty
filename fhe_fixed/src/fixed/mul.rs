@@ -6,6 +6,7 @@ use crate::{
 use rayon::prelude::*;
 use tfhe::integer::ciphertext::BaseSignedRadixCiphertext;
 use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey, SignedRadixCiphertext};
+use tfhe::shortint::parameters::Degree;
 use tfhe::shortint::Ciphertext;
 
 use super::types::FheFixedI;
@@ -202,16 +203,12 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
     let terms = compute_terms_for_sqr_low(c, key);
 
     // we calculate the terms a_i * a_i, and add them together into a single ciphertext
-    let mut same_terms = compute_block_sqrs::<T>(c, key);
+    let same_terms = compute_block_sqrs::<T>(c, key);
 
     if let Some(result) = key.unchecked_sum_ciphertexts_vec_parallelized(terms) {
         *c = result
     } else {
         key.create_trivial_zero_assign_radix(c)
-    }
-
-    if !same_terms.block_carries_are_empty() {
-        key.full_propagate_parallelized(&mut same_terms);
     }
 
     // This may be done with a left shift, but that is more expensive
@@ -227,7 +224,8 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
 fn compute_block_sqrs<T: IntegerRadixCiphertext>(c: &T, key: &ServerKey) -> T {
     let message_modulus = key.key.message_modulus.0;
     let lsb_block_sqr_lut = key.key.generate_lookup_table(|x| (x * x) % message_modulus);
-    let msb_block_sqr_lut = key.key.generate_lookup_table(|x| (x * x) / message_modulus);
+    let msb_block_sqr_lut = key.key.generate_lookup_table
+        (|x| ((x% message_modulus) * (x% message_modulus)) / message_modulus);
 
     let mut result: T = key.create_trivial_zero_radix::<T>(c.blocks().len());
 
