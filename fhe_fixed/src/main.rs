@@ -182,6 +182,7 @@ mod tests {
                             for _ in 0..$Iter {
                                 let i: [<u $Size>] = random();
                                 let j: [<u $Size>] = random();
+                                if $MethodName == "div" && j == 0 { continue; }
                                 test_bin_op!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
                                     ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                     ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
@@ -222,6 +223,7 @@ mod tests {
 
                             for i in 0..=255u8 {
                                 for j in 0..=255u8 {
+                                    if $MethodName == "div" && j == 0 { continue; }
                                     test_bin_op!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
                                         ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                         ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
@@ -234,6 +236,7 @@ mod tests {
 
                             for i in 0..=255u8 {
                                 for j in 0..=255u8 {
+                                    if $MethodName == "div" && j == 0 { continue; }
                                     test_bin_op_signed!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
                                         ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                         ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
@@ -254,78 +257,11 @@ mod tests {
     test_bin_op_exhaustive_u8!(method_name: "add");
     test_bin_op_exhaustive_u8!(method_name: "sub");
     test_bin_op_exhaustive_u8!(method_name: "mul");
-
-    macro_rules! test_div_exhaustive_u8 {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Frac:ty)),*) => {
-            $(
-                #[test]
-                #[ignore]
-                fn $TestFnName() {
-                    for i in 0..=255u8 {
-                        for j in 1..=255u8 {
-                            test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,U8,$Frac,FixedU8<$Frac>,true);
-                        }
-                    }
-                }
-            )*
-        };
-    }
-
-    test_div_exhaustive_u8!(
-        smart_div,
-        wrapping_div,
-        (test_div_exhaustive_u0f8, U8),
-        (test_div_exhaustive_u1f7, U7),
-        (test_div_exhaustive_u2f6, U6),
-        (test_div_exhaustive_u3f5, U5),
-        (test_div_exhaustive_u4f4, U4),
-        (test_div_exhaustive_u5f3, U3),
-        (test_div_exhaustive_u6f2, U2),
-        (test_div_exhaustive_u7f1, U1),
-        (test_div_exhaustive_u8f0, U0)
-    );
-
-    macro_rules! test_div_extensive {
-        ($EncryptedMethod:ident, $ClearMethod:ident,
-        $(($TestFnName:ident, $Size:ty, $Frac:ty, $Fixed:ty, $ClearType:ty)),*) => {
-            $(
-                #[test]
-                fn $TestFnName() {
-                    for _ in 0..1024 {
-                        let i: $ClearType = random();
-                        let mut j: $ClearType = random();
-                        if j == 0 {j += 1};
-                        test_bin_op!(i, j,$EncryptedMethod,$ClearMethod,$Size,$Frac,$Fixed,true);
-                    }
-                }
-            )*
-        };
-    }
-
-    test_div_extensive!(
-        smart_div,
-        wrapping_div,
-        (test_div_extensive_u8_u8f0, U8, U0, U8F0, u8),
-        (test_div_extensive_u8_u7f1, U8, U1, U7F1, u8),
-        (test_div_extensive_u8_u6f2, U8, U2, U6F2, u8),
-        (test_div_extensive_u8_u5f3, U8, U3, U5F3, u8),
-        (test_div_extensive_u8_u4f4, U8, U4, U4F4, u8),
-        (test_div_extensive_u8_u3f5, U8, U5, U3F5, u8),
-        (test_div_extensive_u8_u2f6, U8, U6, U2F6, u8),
-        (test_div_extensive_u8_u1f7, U8, U7, U1F7, u8),
-        (test_div_extensive_u8_u0f8, U8, U8, U0F8, u8),
-        (test_div_extensive_u64f0, U64, U0, U64F0, u64),
-        (test_div_extensive_u48f16, U64, U16, U48F16, u64),
-        (test_div_extensive_u32f32, U64, U32, U32F32, u64),
-        (test_div_extensive_u16f48, U64, U48, U16F48, u64),
-        (test_div_extensive_u0f64, U64, U64, U0F64, u64)
-    );
     // div is not yet done for signed, this can't be used
-    /*test_bin_op_extensive!(method_name: "div",
+    test_bin_op_extensive!(method_name: "div",
         (size: 8, iter:1024, (0,1,2,3,4,5,6,7,8)),
-        (size: 32, iter: 128, (0,32,48,64))
-    );*/
+        (size: 32, iter: 128, (0,32))
+    );
 
     macro_rules! test_binary_op_random_encrypted {
         (method_name: $MethodName:literal,
@@ -339,6 +275,7 @@ mod tests {
                             for _ in 0..$Iter {
                                 let i: [<u $Size>] = random();
                                 let j: [<u $Size>] = random();
+                                if $MethodName == "div" && j == 0 { continue; }
                                 test_bin_op!(i,j,[<smart_ $MethodName>],[<wrapping_ $MethodName>],
                                     ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                     ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,false);
@@ -362,6 +299,11 @@ mod tests {
             }
         };
     }
+
+    test_binary_op_random_encrypted!(method_name: "div",
+        (size: 8, iter:8, (0,1,4,6,8)),
+        (size: 32, iter:4, (0,32))
+    );
 
     test_binary_op_random_encrypted!(method_name: "add",
         (size: 32, iter: 8,
@@ -833,7 +775,6 @@ mod tests {
                             for _ in 0..$Iter {
                                 let i: [<u $Size>] = random();
                                 let j: [<u $Size>] = random();
-                                if $MethodName == "div" && j == 0 { continue; }
                                 test_comp_signed!(i,j,[<smart_ $MethodName>],[<$MethodName>],
                                     ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                     ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
@@ -844,7 +785,6 @@ mod tests {
             }
         };
     }
-
 
     macro_rules! test_comp_exhaustive_u8_inner {
         (method_name: $MethodName:literal,
