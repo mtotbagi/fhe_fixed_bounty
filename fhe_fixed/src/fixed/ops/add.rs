@@ -21,7 +21,9 @@ impl FixedServerKey {
 
     pub(crate) fn smart_add_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) {
         if self.key.is_add_possible(lhs.bits(), rhs.bits()).is_err() {
-            propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+            rayon::join(
+                || self.key.full_propagate_parallelized(lhs.bits_mut()),
+                || self.key.full_propagate_parallelized(rhs.bits_mut()));
         }
         self.unchecked_add_assign(lhs, rhs);
     }

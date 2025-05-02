@@ -23,6 +23,17 @@ impl FixedServerKey {
         if self.key.is_sub_possible(lhs.bits(), rhs.bits()).is_err() {
             propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
         }
+
+        if self.key.is_neg_possible(rhs.bits()).is_err() {
+            self.key.full_propagate_parallelized(rhs.bits_mut());
+        }
+
+        // If the ciphertext cannot be added together without exceeding the capacity of a ciphertext
+        if self.key.is_sub_possible(lhs.bits(), rhs.bits()).is_err() {
+            rayon::join(
+                || self.key.full_propagate_parallelized(lhs.bits_mut()),
+                || self.key.full_propagate_parallelized(rhs.bits_mut()));
+        }
         self.unchecked_sub_assign(lhs, rhs);
     }
 
