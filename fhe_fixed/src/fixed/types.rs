@@ -1,7 +1,4 @@
-use super::{
-    ArbFixedU,
-    traits::{FixedCiphertext, FixedCiphertextInner, FixedFrac, FixedSize},
-};
+use super::traits::{FixedCiphertext, FixedCiphertextInner, FixedFrac, FixedSize};
 use std::marker::PhantomData;
 use tfhe::integer::IntegerCiphertext;
 

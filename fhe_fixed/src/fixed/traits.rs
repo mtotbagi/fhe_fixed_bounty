@@ -71,6 +71,6 @@ pub trait FixedCiphertext: Clone + Sync + Send {
     fn bits_in_block(&self) -> u32;
 }
 
-pub trait FixedCiphertextInner: FixedCiphertext + Clone + Sync + Send {
+pub(crate) trait FixedCiphertextInner: FixedCiphertext {
     fn bits_mut(&mut self) -> &mut Cipher;
 }

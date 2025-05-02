@@ -1,14 +1,11 @@
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use crate::{
-    Cipher, FixedServerKey, propagate_if_needed_parallelized,
+    FixedServerKey,
     traits::{FixedFrac, FixedSize},
 };
-use tfhe::{
-    integer::{IntegerCiphertext, IntegerRadixCiphertext, ciphertext::BaseSignedRadixCiphertext},
-    shortint::Ciphertext,
-};
+use tfhe::integer::IntegerCiphertext;
 
-use super::types::FheFixedI;
+use crate::FheFixedI;
 
 impl FixedServerKey {
     pub(crate) fn smart_abs<T: FixedCiphertextInner>(&self, c: &mut T) -> T {

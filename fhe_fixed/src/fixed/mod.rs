@@ -1,27 +1,18 @@
 #![allow(dead_code)]
 use rayon::prelude::*;
-use tfhe::integer::prelude::ServerKeyDefaultCMux;
-use tfhe::integer::{BooleanBlock, IntegerRadixCiphertext};
+use tfhe::integer::IntegerRadixCiphertext;
 use tfhe::integer::{ClientKey, ServerKey};
 use tfhe::shortint::ClassicPBSParameters;
 use tfhe::shortint::parameters::Degree;
 
 pub mod aliases;
-mod arb_fixed;
 pub mod traits;
+mod arb_fixed;
 mod types;
-
-mod abs;
-mod add;
-mod comp;
-mod div;
 mod encrypt_decrypt;
-mod ilog2;
-mod mul;
-mod neg;
-mod rounding;
-mod sqrt;
-mod sub;
+
+mod ops;
+
 
 pub use arb_fixed::{ArbFixedI, ArbFixedU};
 pub use traits::FixedCiphertext;

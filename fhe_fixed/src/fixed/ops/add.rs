@@ -4,7 +4,7 @@ use crate::{
     traits::{FixedFrac, FixedSize},
 };
 
-use super::types::FheFixedI;
+use crate::FheFixedI;
 
 impl FixedServerKey {
     pub(crate) fn smart_add<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {

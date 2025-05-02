@@ -1,7 +1,7 @@
 use crate::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized, traits::{FixedFrac, FixedSize}, Cipher, FixedServerKey};
 use crate::fixed::{FheFixedU, FheFixedI, FixedCiphertextInner};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
-use tfhe::{integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree, ServerKey};
+use tfhe::{integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext}, shortint::parameters::Degree};
 use std::time::Instant;
 
 impl FixedServerKey {

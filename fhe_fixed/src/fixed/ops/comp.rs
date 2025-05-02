@@ -6,8 +6,8 @@ use crate::{
     traits::{FixedFrac, FixedSize},
 };
 
-use super::propagate_if_needed_parallelized;
-use super::types::FheFixedI;
+use crate::fixed::propagate_if_needed_parallelized;
+use crate::FheFixedI;
 
 impl FixedServerKey {
     fn smart_eq<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {

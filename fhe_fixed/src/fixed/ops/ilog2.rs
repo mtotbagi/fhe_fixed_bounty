@@ -8,7 +8,7 @@ use tfhe::{
     shortint::Ciphertext,
 };
 
-use super::types::FheFixedI;
+use crate::FheFixedI;
 
 impl FixedServerKey {
     pub(crate) fn smart_ilog2<T: FixedCiphertextInner>(

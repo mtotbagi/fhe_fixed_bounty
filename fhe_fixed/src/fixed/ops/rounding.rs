@@ -8,7 +8,7 @@ use tfhe::{
     shortint::Ciphertext,
 };
 
-use super::types::FheFixedI;
+use crate::FheFixedI;
 
 impl FixedServerKey {
     fn smart_floor<T: FixedCiphertextInner>(&self, c: &mut T) -> T {

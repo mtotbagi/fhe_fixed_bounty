@@ -1,10 +1,10 @@
 use crate::fixed::{FheFixedU, FixedCiphertextInner};
 use crate::{
-    Cipher, FixedServerKey, propagate_if_needed_parallelized,
+    FixedServerKey, propagate_if_needed_parallelized,
     traits::{FixedFrac, FixedSize},
 };
 
-use super::types::FheFixedI;
+use crate::FheFixedI;
 
 impl FixedServerKey {
     pub(crate) fn smart_sub<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
