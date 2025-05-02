@@ -57,6 +57,25 @@ impl FixedClientKey {
     }
 }
 
+macro_rules! fhe_fixed_propagate {
+    ($FheFixed:ident) => {
+        impl<Size, Frac> $FheFixed<Size, Frac>
+        where
+            Size: traits::FixedSize<Frac>,
+            Frac: traits::FixedFrac,
+        {
+            pub fn full_propagate_parallelized(&mut self, key: &FixedServerKey) {
+                key.key.full_propagate_parallelized(self.inner.bits_mut());
+            }
+        }
+    };
+}
+
+fhe_fixed_propagate!(FheFixedU);
+fhe_fixed_propagate!(FheFixedI);
+
+
+
 /// Given an array ciphertexts, propagates them in parallel, if their block carries are not empty
 pub(crate) fn propagate_if_needed_parallelized<T: IntegerRadixCiphertext>(
     ciphertexts: &mut [&mut T],
