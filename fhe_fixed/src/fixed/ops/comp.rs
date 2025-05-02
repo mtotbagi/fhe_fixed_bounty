@@ -90,41 +90,41 @@ macro_rules! fhe_fixed_op {
             Size: FixedSize<Frac>,
             Frac: FixedFrac,
         {
-            fn smart_eq(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn smart_eq(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
                 key.smart_eq(&mut self.inner, &mut rhs.inner)
             }
-            fn smart_ne(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn smart_ne(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
                 key.smart_ne(&mut self.inner, &mut rhs.inner)
             }
-            fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
                 key.smart_lt(&mut self.inner, &mut rhs.inner)
             }
-            fn smart_le(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn smart_le(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
                 key.smart_le(&mut self.inner, &mut rhs.inner)
             }
-            fn smart_gt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn smart_gt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
                 key.smart_gt(&mut self.inner, &mut rhs.inner)
             }
-            fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
                 key.smart_ge(&mut self.inner, &mut rhs.inner)
             }
 
-            fn unchecked_eq(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn unchecked_eq(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
                 key.unchecked_eq(&self.inner, &rhs.inner)
             }
-            fn unchecked_ne(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn unchecked_ne(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
                 key.unchecked_ne(&self.inner, &rhs.inner)
             }
-            fn unchecked_lt(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn unchecked_lt(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
                 key.unchecked_lt(&self.inner, &rhs.inner)
             }
-            fn unchecked_le(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn unchecked_le(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
                 key.unchecked_le(&self.inner, &rhs.inner)
             }
-            fn unchecked_gt(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn unchecked_gt(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
                 key.unchecked_gt(&self.inner, &rhs.inner)
             }
-            fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
+            pub fn unchecked_ge(&self, rhs: &Self, key: &FixedServerKey) -> BooleanBlock {
                 key.unchecked_ge(&self.inner, &rhs.inner)
             }
         }

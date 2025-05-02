@@ -683,4 +683,258 @@ mod tests {
     }
 
     test_sqr_exhaustive_u8!(method_name: "sqr");
+
+    macro_rules! test_comp {
+        ($LhsBits:expr, $RhsBits:expr,
+         $EncryptedMethod:ident, $ClearMethod:ident,
+         $Size:ty, $Frac:ty, $Fixed:ty,
+         $Trivial_encrypt:expr) => {
+            type FheFixed = FheFixedU<$Size, $Frac>;
+
+            // TODO this generally
+            let num_blocks = <$Size>::USIZE >> 1;
+
+            let (lhs_bits, rhs_bits) = if $Trivial_encrypt {
+                (
+                    SKEY.key.create_trivial_radix($LhsBits, num_blocks),
+                    SKEY.key.create_trivial_radix($RhsBits, num_blocks),
+                )
+            } else {
+                (
+                    CKEY.key.encrypt_radix($LhsBits, num_blocks),
+                    CKEY.key.encrypt_radix($RhsBits, num_blocks),
+                )
+            };
+
+            let (mut lhs, mut rhs) = (
+                FheFixed::from_bits(lhs_bits, &SKEY),
+                FheFixed::from_bits(rhs_bits, &SKEY),
+            );
+
+            let (lhs_fixed, rhs_fixed) =
+                (<$Fixed>::from_bits($LhsBits as _), <$Fixed>::from_bits($RhsBits as _));
+
+            let clear_res = <$Fixed>::$ClearMethod(&lhs_fixed, &rhs_fixed);
+            let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
+            let decrypted_res = CKEY.key.decrypt_bool(&encrypted_res);
+            assert_eq!(
+                clear_res,
+                decrypted_res,
+                "expected: {}, got: {}, from: {}, {}",
+                clear_res,
+                decrypted_res,
+                $LhsBits,
+                $RhsBits
+            );
+        };
+    }
+
+    macro_rules! test_comp_signed {
+        ($LhsBits:expr, $RhsBits:expr,
+         $EncryptedMethod:ident, $ClearMethod:ident,
+         $Size:ty, $Frac:ty, $Fixed:ty,
+         $Trivial_encrypt:expr) => {
+            type FheFixed = FheFixedU<$Size, $Frac>;
+
+            // TODO this generally
+            let num_blocks = <$Size>::USIZE >> 1;
+
+            let (lhs_bits, rhs_bits) = if $Trivial_encrypt {
+                (
+                    SKEY.key.create_trivial_radix($LhsBits, num_blocks),
+                    SKEY.key.create_trivial_radix($RhsBits, num_blocks),
+                )
+            } else {
+                (
+                    CKEY.key.encrypt_radix($LhsBits, num_blocks),
+                    CKEY.key.encrypt_radix($RhsBits, num_blocks),
+                )
+            };
+
+            let (mut lhs, mut rhs) = (
+                FheFixed::from_bits(lhs_bits, &SKEY),
+                FheFixed::from_bits(rhs_bits, &SKEY),
+            );
+
+            let (lhs_fixed, rhs_fixed) =
+                (<$Fixed>::from_bits($LhsBits as _), <$Fixed>::from_bits($RhsBits as _));
+
+            let clear_res = <$Fixed>::$ClearMethod(&lhs_fixed, &rhs_fixed);
+            let encrypted_res = FheFixed::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
+            let decrypted_res = CKEY.key.decrypt_bool(&encrypted_res);
+            assert_eq!(
+                clear_res,
+                decrypted_res,
+                "expected: {}, got: {}, from: {}, {}",
+                clear_res,
+                decrypted_res,
+                $LhsBits,
+                $RhsBits
+            );
+        };
+    }
+
+    macro_rules! test_comp_random_encrypted {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, iter: $Iter:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_rand_encrypted_ $MethodName _ u $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                let j: [<u $Size>] = random();
+                                test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,false);
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_rand_encrypted_ $MethodName _ i $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                let j: [<u $Size>] = random();
+                                test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,false);
+                            }
+                        }
+                    )*
+                )*
+            }
+        };
+    }
+
+    macro_rules! test_comp_extensive {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, iter: $Iter:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_extensive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                let j: [<u $Size>] = random();
+                                test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_extensive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for _ in 0..$Iter {
+                                let i: [<u $Size>] = random();
+                                let j: [<u $Size>] = random();
+                                if $MethodName == "div" && j == 0 { continue; }
+                                test_comp_signed!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                    ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                    ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                            }
+                        }
+                    )*
+                )*
+            }
+        };
+    }
+
+
+    macro_rules! test_comp_exhaustive_u8_inner {
+        (method_name: $MethodName:literal,
+            $((size: $Size:literal, ($($Frac:literal),*))),* $(,)*) => {
+            ::paste::paste! {
+                $(
+                    $(
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ u $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                for j in 0..=255u8 {
+                                    test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                        ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                        ::fixed::[<FixedU $Size>]<typenum::[<U $Frac>]>,true);
+                                }
+                            }
+                        }
+
+                        #[test]
+                        fn [<fixed_test_exhaustive_ $MethodName _ i $Size f $Frac>]() {
+
+                            for i in 0..=255u8 {
+                                for j in 0..=255u8 {
+                                    test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                        ::typenum::[<U $Size>],::typenum::[<U $Frac>],
+                                        ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
+                                }
+                            }
+                        }
+                    )*
+                )*
+            }
+        };
+    }
+
+    macro_rules! test_comp_exhaustive_u8 {
+        (method_name: $MethodName:literal) => {
+            test_comp_exhaustive_u8_inner!(method_name: $MethodName, (size: 8, (0,1,2,3,4,5,6,7,8)));
+        };
+    }
+
+    test_comp_exhaustive_u8!(method_name: "eq");
+    test_comp_exhaustive_u8!(method_name: "ne");
+    test_comp_exhaustive_u8!(method_name: "le");
+    test_comp_exhaustive_u8!(method_name: "lt");
+    test_comp_exhaustive_u8!(method_name: "ge");
+    test_comp_exhaustive_u8!(method_name: "gt");
+    test_comp_extensive!(method_name: "eq",
+        (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
+        (size: 64, iter: 128, (0, 64)) 
+    );
+    test_comp_extensive!(method_name: "ne",
+        (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
+        (size: 64, iter: 128, (0, 64)) 
+    );
+    test_comp_extensive!(method_name: "lt",
+        (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
+        (size: 64, iter: 128, (0, 64)) 
+    );
+    test_comp_extensive!(method_name: "le",
+        (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
+        (size: 64, iter: 128, (0, 64)) 
+    );
+    test_comp_extensive!(method_name: "gt",
+        (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
+        (size: 64, iter: 128, (0, 64)) 
+    );
+    test_comp_extensive!(method_name: "ge",
+        (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
+        (size: 64, iter: 128, (0, 64)) 
+    );
+
+    test_comp_random_encrypted!(method_name: "eq",
+    (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
+    (size: 64, iter: 4, (0, 64)));
+    test_comp_random_encrypted!(method_name: "ne",
+    (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
+    (size: 64, iter: 4, (0, 64)));
+    test_comp_random_encrypted!(method_name: "le",
+    (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
+    (size: 64, iter: 4, (0, 64)));
+    test_comp_random_encrypted!(method_name: "lt",
+    (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
+    (size: 64, iter: 4, (0, 64)));
+    test_comp_random_encrypted!(method_name: "ge",
+    (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
+    (size: 64, iter: 4, (0, 64)));
+    test_comp_random_encrypted!(method_name: "gt",
+    (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
+    (size: 64, iter: 4, (0, 64)));
+
 }
