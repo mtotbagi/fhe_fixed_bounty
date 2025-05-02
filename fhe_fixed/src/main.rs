@@ -734,7 +734,7 @@ mod tests {
          $EncryptedMethod:ident, $ClearMethod:ident,
          $Size:ty, $Frac:ty, $Fixed:ty,
          $Trivial_encrypt:expr) => {
-            type FheFixed = FheFixedU<$Size, $Frac>;
+            type FheFixed = FheFixedI<$Size, $Frac>;
 
             // TODO this generally
             let num_blocks = <$Size>::USIZE >> 1;
@@ -798,7 +798,7 @@ mod tests {
                             for _ in 0..$Iter {
                                 let i: [<u $Size>] = random();
                                 let j: [<u $Size>] = random();
-                                test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                test_comp_signed!(i,j,[<smart_ $MethodName>],[<$MethodName>],
                                     ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                     ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,false);
                             }
@@ -869,7 +869,7 @@ mod tests {
 
                             for i in 0..=255u8 {
                                 for j in 0..=255u8 {
-                                    test_comp!(i,j,[<smart_ $MethodName>],[<$MethodName>],
+                                    test_comp_signed!(i,j,[<smart_ $MethodName>],[<$MethodName>],
                                         ::typenum::[<U $Size>],::typenum::[<U $Frac>],
                                         ::fixed::[<FixedI $Size>]<typenum::[<U $Frac>]>,true);
                                 }
