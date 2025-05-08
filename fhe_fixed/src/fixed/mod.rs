@@ -14,10 +14,10 @@ mod encrypt_decrypt;
 mod ops;
 
 
-pub use arb_fixed::{ArbFixedI, ArbFixedU};
 pub use traits::FixedCiphertext;
-pub(crate) use traits::FixedCiphertextInner;
 pub use types::{FheFixedI, FheFixedU};
+pub(crate) use arb_fixed::{ArbFixedI, ArbFixedU};
+pub(crate) use traits::FixedCiphertextInner;
 
 pub const PARAM: ClassicPBSParameters =
     tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
