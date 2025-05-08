@@ -122,12 +122,17 @@ pub use strings::ascii::{EncryptableString, FheAsciiString, FheStringIsEmpty, Fh
 pub use tag::Tag;
 pub use traits::FheId;
 
+pub use fixed::{aliases::*, traits::FixedCiphertext, FheFixedU, FheFixedI, FixedServerKey, FixedClientKey};
+
+
 mod booleans;
 mod compressed_ciphertext_list;
 mod config;
 mod errors;
 mod global_state;
 mod integers;
+#[cfg(feature = "fixed")]
+mod fixed;
 mod keys;
 #[cfg(feature = "strings")]
 mod strings;
