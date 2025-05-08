@@ -4,16 +4,16 @@ use std::fmt::{Binary, Debug, Display, Formatter, Result};
 use std::marker::PhantomData;
 
 use crate::traits::{FixedFrac, FixedSize};
-use fixed_crate::traits::ToFixed;
-use fixed_crate::types::extra::LeEqU128;
-use fixed_crate::{FixedI128, FixedU128};
+use fixed_crate::traits::{Fixed, FromFixed, ToFixed};
+use fixed_crate::types::extra::{LeEqU128, LeEqU16, LeEqU32, LeEqU64, LeEqU8};
+use fixed_crate::{FixedI128, FixedI16, FixedI32, FixedI64, FixedI8, FixedU128, FixedU16, FixedU32, FixedU64, FixedU8};
 use typenum::Unsigned;
 
 #[derive(Clone)]
 /// Fixed point unsigned, of arbitrary length.
 ///
 /// The first `Frac` bits in the u64s will be the fractional bits.
-pub struct ArbFixedU<Size, Frac> {
+pub(crate) struct ArbFixedU<Size, Frac> {
     // Maybe this should be called bits instead?
     pub(crate) parts: Vec<u64>,
     pub(crate) phantom1: PhantomData<Frac>,
@@ -70,6 +70,66 @@ where
             res += *part as u128;
         }
         FixedU128::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedU to a FixedU64, if Size <= 128 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedU<Size, Frac>> for FixedU64<Frac>
+where
+    Size: LeEqU64,
+{
+    fn from(arb: ArbFixedU<Size, Frac>) -> Self {
+        let mut res = 0u64;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as u64;
+        }
+        FixedU64::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedU to a FixedU32, if Size <= 128 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedU<Size, Frac>> for FixedU32<Frac>
+where
+    Size: LeEqU32,
+{
+    fn from(arb: ArbFixedU<Size, Frac>) -> Self {
+        let mut res = 0u32;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as u32;
+        }
+        FixedU32::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedU to a FixedU16, if Size <= 128 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedU<Size, Frac>> for FixedU16<Frac>
+where
+    Size: LeEqU16,
+{
+    fn from(arb: ArbFixedU<Size, Frac>) -> Self {
+        let mut res = 0u16;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as u16;
+        }
+        FixedU16::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedU to a FixedU8, if Size <= 128 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedU<Size, Frac>> for FixedU8<Frac>
+where
+    Size: LeEqU8,
+{
+    fn from(arb: ArbFixedU<Size, Frac>) -> Self {
+        let mut res = 0u8;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as u8;
+        }
+        FixedU8::<Frac>::from_bits(res)
     }
 }
 
@@ -154,7 +214,7 @@ where
 ///
 /// The first `Frac` bits in the u64s will be the fractional bits.
 /// The `Size`th bit is the sign
-pub struct ArbFixedI<Size, Frac> {
+pub(crate) struct ArbFixedI<Size, Frac> {
     // Maybe this should be called bits instead?
     pub(crate) parts: Vec<u64>,
     pub(crate) phantom1: PhantomData<Frac>,
@@ -199,7 +259,7 @@ impl<Size, Frac> PartialEq for ArbFixedI<Size, Frac> {
 
 impl<Size, Frac> Eq for ArbFixedI<Size, Frac> {}
 
-/* This converts back an ArbFixedU to a FixedU128, if Size <= 128 */
+/* This converts back an ArbFixedI to a FixedI128, if Size <= 128 */
 impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedI<Size, Frac>> for FixedI128<Frac>
 where
     Size: LeEqU128,
@@ -214,6 +274,7 @@ where
     }
 }
 
+/* This converts back an ArbFixedI to a FixedI128, if Size <= 128 */
 impl<Size: Unsigned, Frac: Unsigned> From<&ArbFixedI<Size, Frac>> for FixedI128<Frac>
 where
     Size: LeEqU128,
@@ -227,6 +288,68 @@ where
         FixedI128::<Frac>::from_bits(res as i128)
     }
 }
+
+/* This converts back an ArbFixedI to a FixedI64, if Size <= 64 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedI<Size, Frac>> for FixedI64<Frac>
+where
+    Size: LeEqU64,
+{
+    fn from(arb: ArbFixedI<Size, Frac>) -> Self {
+        let mut res = 0i64;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as i64;
+        }
+        FixedI64::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedI to a FixedI32, if Size <= 32 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedI<Size, Frac>> for FixedI32<Frac>
+where
+    Size: LeEqU32,
+{
+    fn from(arb: ArbFixedI<Size, Frac>) -> Self {
+        let mut res = 0i32;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as i32;
+        }
+        FixedI32::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedI to a FixedI16, if Size <= 16 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedI<Size, Frac>> for FixedI16<Frac>
+where
+    Size: LeEqU16,
+{
+    fn from(arb: ArbFixedI<Size, Frac>) -> Self {
+        let mut res = 0i16;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as i16;
+        }
+        FixedI16::<Frac>::from_bits(res)
+    }
+}
+
+/* This converts back an ArbFixedI to a FixedI8, if Size <= 8 */
+impl<Size: Unsigned, Frac: Unsigned> From<ArbFixedI<Size, Frac>> for FixedI8<Frac>
+where
+    Size: LeEqU8,
+{
+    fn from(arb: ArbFixedI<Size, Frac>) -> Self {
+        let mut res = 0i8;
+        for part in arb.parts.iter().rev() {
+            res = res << 64;
+            res += *part as i8;
+        }
+        FixedI8::<Frac>::from_bits(res)
+    }
+}
+
+
 /* This now works for any type which implements ToFixed
 (Which is basically every builtin numeric type, and every fixed type) */
 impl<T, Size: Unsigned, Frac: Unsigned> From<T> for ArbFixedI<Size, Frac>

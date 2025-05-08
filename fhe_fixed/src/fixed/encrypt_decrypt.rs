@@ -108,7 +108,7 @@ where
         Self::new(Cipher::from_blocks(blocks))
     }
 
-    pub fn decrypt(&self, key: &FixedClientKey) -> ArbFixedU<Size, Frac> {
+    pub fn decrypt<T: From<ArbFixedU<Size, Frac>>>(&self, key: &FixedClientKey) -> T {
         let blocks = &self.inner.bits().blocks();
         let clear_blocks: Vec<u8> = blocks
             .iter()
@@ -117,7 +117,7 @@ where
 
         let values = blocks_with_carry_to_u64(clear_blocks);
 
-        ArbFixedU::from_bits(values)
+        T::from(ArbFixedU::from_bits(values))
     }
 }
 
