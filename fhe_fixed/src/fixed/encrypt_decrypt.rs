@@ -108,6 +108,11 @@ where
         Self::new(Cipher::from_blocks(blocks))
     }
 
+    pub fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self {
+        let fix: ArbFixedU<Size, Frac> = ArbFixedU::from_bits(bits);
+        Self::encrypt_trivial(fix, key)
+    }
+
     pub fn decrypt<T: From<ArbFixedU<Size, Frac>>>(&self, key: &FixedClientKey) -> T {
         let blocks = &self.inner.bits().blocks();
         let clear_blocks: Vec<u8> = blocks
@@ -118,6 +123,11 @@ where
         let values = blocks_with_carry_to_u64(clear_blocks);
 
         T::from(ArbFixedU::from_bits(values))
+    }
+
+    pub fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64> {
+        let arb_result: ArbFixedU<Size, Frac> = self.decrypt(key);
+        arb_result.parts
     }
 }
 
@@ -203,7 +213,12 @@ where
         Self::new(Cipher::from_blocks(blocks))
     }
 
-    pub fn decrypt(&self, key: &FixedClientKey) -> ArbFixedI<Size, Frac> {
+    pub fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self {
+        let fix: ArbFixedI<Size, Frac> = ArbFixedI::from_bits(bits);
+        Self::encrypt_trivial(fix, key)
+    }
+
+    pub fn decrypt<T: From<ArbFixedI<Size, Frac>>>(&self, key: &FixedClientKey) -> T {
         let blocks = &self.inner.bits().blocks();
         let clear_blocks: Vec<u8> = blocks
             .iter()
@@ -212,7 +227,12 @@ where
 
         let values = blocks_with_carry_to_u64(clear_blocks);
 
-        ArbFixedI::from_bits(values)
+        T::from(ArbFixedI::from_bits(values))
+    }
+
+    pub fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64> {
+        let arb_result: ArbFixedI<Size, Frac> = self.decrypt(key);
+        arb_result.parts
     }
 }
 
