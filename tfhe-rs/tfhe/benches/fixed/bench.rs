@@ -3,21 +3,12 @@
 #[path = "../utilities.rs"]
 mod utilities;
 
-use crate::utilities::{
-    BenchmarkType, EnvConfig, OperatorType,
-    ParamsAndNumBlocksIter, BENCH_TYPE,
-};
-use criterion::{criterion_group, Criterion, Throughput};
+use crate::utilities::{BenchmarkType, BENCH_TYPE};
+use criterion::{criterion_group, Criterion};
 use rand::prelude::*;
-use rayon::prelude::*;
-use std::cmp::max;
 use std::env;
-use tfhe::integer::keycache::KEY_CACHE;
-use tfhe::integer::prelude::*;
-use tfhe::integer::{IntegerKeyKind, RadixCiphertext, RadixClientKey, ServerKey, U256};
-use tfhe::keycache::NamedParam;
 
-use tfhe::{FixedCiphertext, FheFixedU, FixedClientKey, FixedServerKey, FixedSize, FixedFrac};
+use tfhe::{FheFixedU, FixedClientKey, FixedServerKey, FixedSize, FixedFrac};
 use std::sync::LazyLock;
 
 use typenum::{U8, U16, U32, U64};
@@ -121,10 +112,10 @@ fn bench_server_key_binary_function_clean_inputs<F, Size, Frac>(
 
         let encrypt_two_values = || {
             let clear_0 = gen_random_u128(&mut rng);
-            let mut ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
+            let ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
 
             let clear_1 = gen_random_u128(&mut rng);
-            let mut ct_1 = CKEY.key.encrypt_radix(clear_1, num_block);
+            let ct_1 = CKEY.key.encrypt_radix(clear_1, num_block);
 
             (FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY))
         };
@@ -223,7 +214,7 @@ fn bench_server_key_unary_function_clean_inputs<F, Size, Frac>(
 
         let encrypt_value = || {
             let clear_0 = gen_random_u128(&mut rng);
-            let mut ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
+            let ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
 
             FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY)
         };
@@ -298,6 +289,34 @@ macro_rules! define_server_key_bench_default_fn (
     }
 );
 
+macro_rules! define_server_key_bench_trunc_fn (
+    (method_name: $server_key_method:ident, display_name:$name:ident) => {
+        fn $server_key_method(c: &mut Criterion) {
+            bench_server_key_unary_function_dirty_inputs::<_, U16, U8>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(5, server_key);
+            })
+        }
+    }
+);
+
+macro_rules! define_server_key_bench_trunc_default_fn (
+    (method_name: $server_key_method:ident, display_name:$name:ident) => {
+        fn $server_key_method(c: &mut Criterion) {
+            bench_server_key_unary_function_clean_inputs::<_, U16, U8>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(5, server_key);
+            })
+        }
+    }
+);
+
 // TODO roundings
 
 
@@ -305,7 +324,6 @@ define_server_key_bench_fn!(method_name: smart_add, display_name: add);
 define_server_key_bench_fn!(method_name: smart_sub, display_name: sub);
 define_server_key_bench_fn!(method_name: smart_mul, display_name: mul);
 define_server_key_bench_fn!(method_name: smart_div, display_name: div);
-
 
 define_server_key_bench_default_fn!(method_name: unchecked_add, display_name: add);
 define_server_key_bench_default_fn!(method_name: unchecked_sub, display_name: sub);
@@ -336,8 +354,15 @@ define_server_key_bench_fn!(method_name: smart_le, display_name: less_or_equal);
 define_server_key_bench_fn!(method_name: smart_gt, display_name: greater_than);
 define_server_key_bench_fn!(method_name: smart_ge, display_name: greater_or_equal);
 
+define_server_key_bench_unary_fn!(method_name: smart_floor, display_name: floor);
+define_server_key_bench_unary_fn!(method_name: smart_ceil, display_name: ceil);
+define_server_key_bench_unary_fn!(method_name: smart_round, display_name: round);
+define_server_key_bench_trunc_fn!(method_name: smart_trunc, display_name: trunc);
 
-use tfhe::{get_pbs_count, reset_pbs_count};
+// define_server_key_bench_unary_default_fn!(method_name: unchecked_floor, display_name: floor);
+// define_server_key_bench_unary_default_fn!(method_name: unchecked_ceil, display_name: ceil);
+// define_server_key_bench_unary_default_fn!(method_name: unchecked_round, display_name: round);
+// define_server_key_bench_trunc_default_fn!(method_name: unchecked_trunc, display_name: trunc);
 
 criterion_group!(
     smart_ops,
@@ -362,6 +387,14 @@ criterion_group!(
 );
 
 criterion_group!(
+    smart_ops_round,
+    smart_floor,
+    smart_ceil,
+    smart_round,
+    smart_trunc,
+);
+
+criterion_group!(
     unchecked_ops,
     unchecked_neg,
     unchecked_add,
@@ -383,20 +416,30 @@ criterion_group!(
     unchecked_ge,
 );
 
+// criterion_group!(
+//     unchecked_ops_round,
+//     unchecked_floor,
+//     unchecked_ceil,
+//     unchecked_round,
+//     unchecked_trunc,
+// );
 
 fn go_through_cpu_bench_groups(val: &str) {
     match val.to_lowercase().as_str() {
         "smart" => {
             smart_ops();
             smart_ops_comp();
+            smart_ops_round();
         }
         "unchecked" => {
             unchecked_ops();
             unchecked_ops_comp();
+            // unchecked_ops_round();
         }
         _ => {
             smart_ops();
             smart_ops_comp();
+            smart_ops_round();
         },
     };
 }
@@ -407,14 +450,12 @@ fn main() {
 
     match env::var("__TFHE_RS_BENCH_OP_FLAVOR") {
         Ok(val) => {
-            #[cfg(feature = "gpu")]
-            go_through_gpu_bench_groups(&val);
-            #[cfg(not(feature = "gpu"))]
             go_through_cpu_bench_groups(&val);
         }
         Err(_) => {
             smart_ops();
             smart_ops_comp();
+            smart_ops_round();
         }
     };
 

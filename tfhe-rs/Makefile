@@ -1239,6 +1239,14 @@ bench_ks_gpu: install_rs_check_toolchain
 	--bench ks-bench \
 	--features=boolean,shortint,gpu,internal-keycache,nightly-avx512 -p $(TFHE_SPEC)
 
+.PHONY: bench_fixed # Run benchmarks for unsigned integer
+bench_fixed: install_rs_check_toolchain
+	RUSTFLAGS="$(RUSTFLAGS)" __TFHE_RS_BENCH_OP_FLAVOR=$(BENCH_OP_FLAVOR) __TFHE_RS_FAST_BENCH=$(FAST_BENCH) __TFHE_RS_BENCH_TYPE=$(BENCH_TYPE) \
+	cargo $(CARGO_RS_CHECK_TOOLCHAIN) bench \
+	--bench fixed-bench \
+	--features=fixed,internal-keycache,nightly-avx512,pbs-stats -p $(TFHE_SPEC) --
+
+
 bench_web_js_api_parallel_chrome: browser_path = "$(WEB_RUNNER_DIR)/chrome/chrome-linux64/chrome"
 bench_web_js_api_parallel_chrome: driver_path = "$(WEB_RUNNER_DIR)/chrome/chromedriver-linux64/chromedriver"
 bench_web_js_api_parallel_chrome: browser_kind = chrome
