@@ -268,6 +268,12 @@ path = "benches/utilities.rs"
 harness = false
 required-features = ["boolean", "shortint", "integer", "internal-keycache"]
 
+[[bench]]
+name = "fixed-bench"
+path = "benches/fixed/bench.rs"
+harness = false
+required-features = ["fixed", "pbs-stats", "internal-keycache"]
+
 # Examples used as tools
 
 [[example]]

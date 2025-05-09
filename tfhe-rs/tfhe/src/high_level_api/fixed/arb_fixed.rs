@@ -13,7 +13,7 @@ use typenum::Unsigned;
 /// Fixed point unsigned, of arbitrary length.
 ///
 /// The first `Frac` bits in the u64s will be the fractional bits.
-pub(crate) struct ArbFixedU<Size, Frac> {
+pub struct ArbFixedU<Size, Frac> {
     // Maybe this should be called bits instead?
     pub(crate) parts: Vec<u64>,
     pub(crate) phantom1: PhantomData<Frac>,
@@ -34,7 +34,7 @@ where
             phantom2: PhantomData,
         }
     }
-    pub fn from_bits(mut bits: Vec<u64>) -> Self {
+    pub(crate) fn from_bits(mut bits: Vec<u64>) -> Self {
         let mut len: usize = Size::USIZE / 64;
         if Size::USIZE % 64 != 0 {
             len += 1;
@@ -231,7 +231,7 @@ where
 ///
 /// The first `Frac` bits in the u64s will be the fractional bits.
 /// The `Size`th bit is the sign
-pub(crate) struct ArbFixedI<Size, Frac> {
+pub struct ArbFixedI<Size, Frac> {
     // Maybe this should be called bits instead?
     pub(crate) parts: Vec<u64>,
     pub(crate) phantom1: PhantomData<Frac>,
@@ -252,7 +252,7 @@ where
             phantom2: PhantomData,
         }
     }
-    pub fn from_bits(mut bits: Vec<u64>) -> Self {
+    pub(crate) fn from_bits(mut bits: Vec<u64>) -> Self {
         let mut len: usize = Size::USIZE / 64;
         if Size::USIZE % 64 != 0 {
             len += 1;

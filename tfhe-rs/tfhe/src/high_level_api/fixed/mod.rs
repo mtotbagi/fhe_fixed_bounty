@@ -14,7 +14,7 @@ mod encrypt_decrypt;
 mod ops;
 
 
-pub use traits::FixedCiphertext;
+pub use traits::{FixedCiphertext, FixedSize, FixedFrac};
 pub use types::{FheFixedI, FheFixedU};
 pub(crate) use traits::FixedCiphertextInner;
 
