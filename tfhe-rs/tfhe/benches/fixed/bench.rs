@@ -241,7 +241,23 @@ macro_rules! define_server_key_bench_unary_fn (
                 stringify!($name),
                 |lhs, server_key| {
                     lhs.$server_key_method(server_key);
-            })
+            });
+
+            bench_server_key_unary_function_dirty_inputs::<_, U32, U16>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(server_key);
+            });
+
+            bench_server_key_unary_function_dirty_inputs::<_, U64, U32>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(server_key);
+            });
         }
     }
 );
@@ -255,7 +271,22 @@ macro_rules! define_server_key_bench_unary_default_fn (
                 stringify!($name),
                 |lhs, server_key| {
                     lhs.$server_key_method(server_key);
-            })
+            });
+            bench_server_key_unary_function_clean_inputs::<_, U32, U16>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(server_key);
+            });
+
+            bench_server_key_unary_function_clean_inputs::<_, U64, U32>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(server_key);
+            });
         }
     }
 );
@@ -270,7 +301,25 @@ macro_rules! define_server_key_bench_fn (
                 |lhs, rhs, server_key| {
                     lhs.$server_key_method(rhs, server_key);
                 }
-            )
+            );
+
+            bench_server_key_binary_function_dirty_inputs::<_, U32, U16>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, rhs, server_key| {
+                    lhs.$server_key_method(rhs, server_key);
+                }
+            );
+
+            bench_server_key_binary_function_dirty_inputs::<_, U64, U32>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, rhs, server_key| {
+                    lhs.$server_key_method(rhs, server_key);
+                }
+            );
         }
     }
 );
@@ -284,7 +333,23 @@ macro_rules! define_server_key_bench_default_fn (
                 stringify!($name),
                 |lhs, rhs, server_key| {
                     lhs.$server_key_method(rhs, server_key);
-            })
+            });
+
+            bench_server_key_binary_function_clean_inputs::<_, U32, U16>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, rhs, server_key| {
+                    lhs.$server_key_method(rhs, server_key);
+            });
+
+            bench_server_key_binary_function_clean_inputs::<_, U64, U32>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, rhs, server_key| {
+                    lhs.$server_key_method(rhs, server_key);
+            });
         }
     }
 );
@@ -298,7 +363,23 @@ macro_rules! define_server_key_bench_trunc_fn (
                 stringify!($name),
                 |lhs, server_key| {
                     lhs.$server_key_method(5, server_key);
-            })
+            });
+
+            bench_server_key_unary_function_dirty_inputs::<_, U32, U16>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(5, server_key);
+            });
+
+            bench_server_key_unary_function_dirty_inputs::<_, U64, U32>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(5, server_key);
+            });
         }
     }
 );
@@ -312,7 +393,23 @@ macro_rules! define_server_key_bench_trunc_default_fn (
                 stringify!($name),
                 |lhs, server_key| {
                     lhs.$server_key_method(5, server_key);
-            })
+            });
+
+            bench_server_key_unary_function_clean_inputs::<_, U32, U16>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(5, server_key);
+            });
+
+            bench_server_key_unary_function_clean_inputs::<_, U64, U32>(
+                c,
+                concat!("fixed::", stringify!($server_key_method)),
+                stringify!($name),
+                |lhs, server_key| {
+                    lhs.$server_key_method(5, server_key);
+            });
         }
     }
 );
