@@ -175,9 +175,7 @@ impl FixedServerKey {
     }
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
+        impl<Size, Frac> FheFixedU<Size, Frac>
         where
 Size: FixedSize<Frac>,
             Frac: FixedFrac,
@@ -199,8 +197,26 @@ Size: FixedSize<Frac>,
         key.unchecked_sqrt_assign(&mut self.inner)
     }
 }
-};
-}
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+impl<Size, Frac> FheFixedI<Size, Frac>
+        where
+Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_sqrt(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_sqrt(&mut self.inner),
+                }
+    }
+    pub fn unchecked_sqrt(&self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.unchecked_sqrt(&self.inner),
+                }
+    }
+            pub fn smart_sqrt_assign(&mut self, key: &FixedServerKey) {
+        key.smart_sqrt_assign(&mut self.inner)
+    }
+            pub fn unchecked_sqrt_assign(&mut self, key: &FixedServerKey) {
+        key.unchecked_sqrt_assign(&mut self.inner)
+    }
+}

@@ -55,49 +55,142 @@ impl FixedServerKey {
     }
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
-        where
-            Size: FixedSize<Frac>,
-            Frac: FixedFrac,
-        {
-            pub fn smart_add(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_add(&mut self.inner, &mut lhs.inner),
-                }
-            }
-            pub fn unchecked_add(&self, lhs: &Self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.unchecked_add(&self.inner, &lhs.inner),
-                }
-            }
-            pub fn smart_add_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
-                key.smart_add_assign(&mut self.inner, &mut lhs.inner)
-            }
-            pub fn unchecked_add_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
-                key.unchecked_add_assign(&mut self.inner, &lhs.inner)
-            }
-
-            pub fn smart_dbl(&mut self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_dbl(&mut self.inner),
-                }
-            }
-            pub fn unchecked_dbl(&self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.unchecked_dbl(&self.inner),
-                }
-            }
-            pub fn smart_dbl_assign(&mut self, key: &FixedServerKey) {
-                key.smart_dbl_assign(&mut self.inner)
-            }
-            pub fn unchecked_dbl_assign(&mut self, key: &FixedServerKey) {
-                key.unchecked_dbl_assign(&mut self.inner)
-            }
+impl<Size, Frac> FheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    /// Computes homomorphically an addition between two ciphertexts encrypting fixed point numbers.
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// let clear_b: U8F8 = U8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// // Compute homomorphically an addition:
+    /// let ct_res = a.smart_add(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a + clear_b);
+    /// ```
+    pub fn smart_add(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_add(&mut self.inner, &mut lhs.inner),
         }
-    };
+    }
+    pub fn unchecked_add(&self, lhs: &Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.unchecked_add(&self.inner, &lhs.inner),
+        }
+    }
+    pub fn smart_add_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
+        key.smart_add_assign(&mut self.inner, &mut lhs.inner)
+    }
+    pub fn unchecked_add_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
+        key.unchecked_add_assign(&mut self.inner, &lhs.inner)
+    }
+
+    pub fn smart_dbl(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_dbl(&mut self.inner),
+        }
+    }
+    pub fn unchecked_dbl(&self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.unchecked_dbl(&self.inner),
+        }
+    }
+    pub fn smart_dbl_assign(&mut self, key: &FixedServerKey) {
+        key.smart_dbl_assign(&mut self.inner)
+    }
+    pub fn unchecked_dbl_assign(&mut self, key: &FixedServerKey) {
+        key.unchecked_dbl_assign(&mut self.inner)
+    }
 }
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+impl<Size, Frac> FheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    /// Computes homomorphically an addition between two ciphertexts encrypting fixed point numbers.
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// let clear_b: I8F8 = I8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// // Compute homomorphically an addition:
+    /// let ct_res = a.smart_add(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a + clear_b);
+    /// ```
+    pub fn smart_add(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_add(&mut self.inner, &mut lhs.inner),
+        }
+    }
+    pub fn unchecked_add(&self, lhs: &Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.unchecked_add(&self.inner, &lhs.inner),
+        }
+    }
+    pub fn smart_add_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
+        key.smart_add_assign(&mut self.inner, &mut lhs.inner)
+    }
+    pub fn unchecked_add_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
+        key.unchecked_add_assign(&mut self.inner, &lhs.inner)
+    }
+
+    pub fn smart_dbl(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_dbl(&mut self.inner),
+        }
+    }
+    pub fn unchecked_dbl(&self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.unchecked_dbl(&self.inner),
+        }
+    }
+    pub fn smart_dbl_assign(&mut self, key: &FixedServerKey) {
+        key.smart_dbl_assign(&mut self.inner)
+    }
+    pub fn unchecked_dbl_assign(&mut self, key: &FixedServerKey) {
+        key.unchecked_dbl_assign(&mut self.inner)
+    }
+}

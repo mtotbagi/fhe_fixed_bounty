@@ -36,32 +36,49 @@ impl FixedServerKey {
     }
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
-        where
-            Size: FixedSize<Frac>,
-            Frac: FixedFrac,
-        {
-            pub fn smart_sub(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_sub(&mut self.inner, &mut lhs.inner),
-                }
-            }
-            pub fn unchecked_sub(&self, lhs: &Self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.unchecked_sub(&self.inner, &lhs.inner),
-                }
-            }
-            pub fn smart_sub_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
-                key.smart_sub_assign(&mut self.inner, &mut lhs.inner)
-            }
-            pub fn unchecked_sub_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
-                key.unchecked_sub_assign(&mut self.inner, &lhs.inner)
-            }
+
+impl<Size, Frac> FheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_sub(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_sub(&mut self.inner, &mut lhs.inner),
         }
-    };
+    }
+    pub fn unchecked_sub(&self, lhs: &Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.unchecked_sub(&self.inner, &lhs.inner),
+        }
+    }
+    pub fn smart_sub_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
+        key.smart_sub_assign(&mut self.inner, &mut lhs.inner)
+    }
+    pub fn unchecked_sub_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
+        key.unchecked_sub_assign(&mut self.inner, &lhs.inner)
+    }
 }
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+impl<Size, Frac> FheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_sub(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_sub(&mut self.inner, &mut lhs.inner),
+        }
+    }
+    pub fn unchecked_sub(&self, lhs: &Self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.unchecked_sub(&self.inner, &lhs.inner),
+        }
+    }
+    pub fn smart_sub_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
+        key.smart_sub_assign(&mut self.inner, &mut lhs.inner)
+    }
+    pub fn unchecked_sub_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
+        key.unchecked_sub_assign(&mut self.inner, &lhs.inner)
+    }
+}

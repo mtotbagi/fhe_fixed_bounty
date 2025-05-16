@@ -253,28 +253,40 @@ impl FixedServerKey {
     }
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
-        where
-            Size: FixedSize<Frac>,
-            Frac: FixedFrac,
-        {
-            pub fn smart_div(&mut self, rhs: &mut Self, key: &FixedServerKey) -> Self{
-                Self {inner: key.smart_div(&mut self.inner, &mut rhs.inner) }
-            }
-            pub fn unchecked_div(&self, rhs: &Self, key: &FixedServerKey) -> Self {
-                Self {inner: key.unchecked_div(&self.inner, &rhs.inner) }
-            }
-            pub fn smart_div_assign(&mut self, rhs: &mut Self, key: &FixedServerKey){
-                key.smart_div_assign(&mut self.inner, &mut rhs.inner)
-            }
-            pub fn unchecked_div_assign(&mut self, rhs: &Self, key: &FixedServerKey){
-                key.unchecked_div_assign(&mut self.inner, &rhs.inner)
-            }
-        }
-    };
+impl<Size, Frac> FheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_div(&mut self, rhs: &mut Self, key: &FixedServerKey) -> Self{
+        Self {inner: key.smart_div(&mut self.inner, &mut rhs.inner) }
+    }
+    pub fn unchecked_div(&self, rhs: &Self, key: &FixedServerKey) -> Self {
+        Self {inner: key.unchecked_div(&self.inner, &rhs.inner) }
+    }
+    pub fn smart_div_assign(&mut self, rhs: &mut Self, key: &FixedServerKey){
+        key.smart_div_assign(&mut self.inner, &mut rhs.inner)
+    }
+    pub fn unchecked_div_assign(&mut self, rhs: &Self, key: &FixedServerKey){
+        key.unchecked_div_assign(&mut self.inner, &rhs.inner)
+    }
 }
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+impl<Size, Frac> FheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_div(&mut self, rhs: &mut Self, key: &FixedServerKey) -> Self{
+        Self {inner: key.smart_div(&mut self.inner, &mut rhs.inner) }
+    }
+    pub fn unchecked_div(&self, rhs: &Self, key: &FixedServerKey) -> Self {
+        Self {inner: key.unchecked_div(&self.inner, &rhs.inner) }
+    }
+    pub fn smart_div_assign(&mut self, rhs: &mut Self, key: &FixedServerKey){
+        key.smart_div_assign(&mut self.inner, &mut rhs.inner)
+    }
+    pub fn unchecked_div_assign(&mut self, rhs: &Self, key: &FixedServerKey){
+        key.unchecked_div_assign(&mut self.inner, &rhs.inner)
+    }
+}

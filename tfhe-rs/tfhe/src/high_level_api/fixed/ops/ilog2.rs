@@ -35,28 +35,41 @@ impl FixedServerKey {
     }
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
-        where
-            Size: FixedSize<Frac>,
-            Frac: FixedFrac,
-        {
-            pub fn smart_ilog2(
-                &mut self,
-                key: &FixedServerKey,
-            ) -> BaseSignedRadixCiphertext<Ciphertext> {
-                key.smart_ilog2(&mut self.inner)
-            }
-            pub fn unchecked_ilog2(
-                &self,
-                key: &FixedServerKey,
-            ) -> BaseSignedRadixCiphertext<Ciphertext> {
-                key.unchecked_ilog2(&self.inner)
-            }
-        }
-    };
+
+impl<Size, Frac> FheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_ilog2(
+        &mut self,
+        key: &FixedServerKey,
+    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+        key.smart_ilog2(&mut self.inner)
+    }
+    pub fn unchecked_ilog2(
+        &self,
+        key: &FixedServerKey,
+    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+        key.unchecked_ilog2(&self.inner)
+    }
 }
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+impl<Size, Frac> FheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_ilog2(
+        &mut self,
+        key: &FixedServerKey,
+    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+        key.smart_ilog2(&mut self.inner)
+    }
+    pub fn unchecked_ilog2(
+        &self,
+        key: &FixedServerKey,
+    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+        key.unchecked_ilog2(&self.inner)
+    }
+}

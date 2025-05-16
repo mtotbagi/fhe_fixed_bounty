@@ -25,9 +25,7 @@ impl FixedServerKey {
     // There is no abs_assign in TFHE, so I also left it out
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
+        impl<Size, Frac> FheFixedU<Size, Frac>
         where
             Size: FixedSize<Frac>,
             Frac: FixedFrac,
@@ -43,8 +41,20 @@ macro_rules! fhe_fixed_op {
                 }
             }
         }
-    };
-}
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+        impl<Size, Frac> FheFixedI<Size, Frac>
+        where
+            Size: FixedSize<Frac>,
+            Frac: FixedFrac,
+        {
+            pub fn smart_abs(&mut self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.smart_abs(&mut self.inner),
+                }
+            }
+            pub fn unchecked_abs(&self, key: &FixedServerKey) -> Self {
+                Self {
+                    inner: key.unchecked_abs(&self.inner),
+                }
+            }
+        }

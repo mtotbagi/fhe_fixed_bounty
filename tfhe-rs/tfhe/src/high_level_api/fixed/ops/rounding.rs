@@ -58,36 +58,56 @@ impl FixedServerKey {
     }
 }
 
-macro_rules! fhe_fixed_op {
-    ($FheFixed:ident) => {
-        impl<Size, Frac> $FheFixed<Size, Frac>
-        where
-            Size: FixedSize<Frac>,
-            Frac: FixedFrac,
-        {
-            pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_floor(&mut self.inner),
-                }
-            }
-            pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_ceil(&mut self.inner),
-                }
-            }
-            pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_round(&mut self.inner),
-                }
-            }
-            pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
-                Self {
-                    inner: key.smart_trunc(&mut self.inner, prec),
-                }
-            }
+impl<Size, Frac> FheFixedU<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_floor(&mut self.inner),
         }
-    };
+    }
+    pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_ceil(&mut self.inner),
+        }
+    }
+    pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_round(&mut self.inner),
+        }
+    }
+    pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_trunc(&mut self.inner, prec),
+        }
+    }
 }
 
-fhe_fixed_op!(FheFixedU);
-fhe_fixed_op!(FheFixedI);
+impl<Size, Frac> FheFixedI<Size, Frac>
+where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac,
+{
+    pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_floor(&mut self.inner),
+        }
+    }
+    pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_ceil(&mut self.inner),
+        }
+    }
+    pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_round(&mut self.inner),
+        }
+    }
+    pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
+        Self {
+            inner: key.smart_trunc(&mut self.inner, prec),
+        }
+    }
+}
