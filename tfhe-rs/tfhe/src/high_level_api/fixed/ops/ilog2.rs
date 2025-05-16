@@ -41,6 +41,34 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
+    /// Computes homomorphically the integer logarithm (base 2) of a ciphertext encrypting a fixed point number.
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// 
+    /// // Compute homomorphically an addition:
+    /// let ct_res = a.smart_ilog2(&skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result: i32 = ckey.key.decrypt(&ct_res);
+    /// assert_eq!(dec_result, clear_a.int_log2());
+    /// ```
     pub fn smart_ilog2(
         &mut self,
         key: &FixedServerKey,
@@ -60,6 +88,34 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
+    /// Computes homomorphically the integer logarithm (base 2) of a ciphertext encrypting a fixed point number.
+    /// If the encrypted number is negative, the result will be undefined
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// 
+    /// // Compute homomorphically an addition:
+    /// let ct_res = a.smart_ilog2(&skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result: i32 = ckey.key.decrypt(&ct_res);
+    /// assert_eq!(dec_result, clear_a.int_log2());
+    /// ```
     pub fn smart_ilog2(
         &mut self,
         key: &FixedServerKey,

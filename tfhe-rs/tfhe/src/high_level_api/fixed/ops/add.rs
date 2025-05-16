@@ -61,6 +61,7 @@ where
     Frac: FixedFrac,
 {
     /// Computes homomorphically an addition between two ciphertexts encrypting fixed point numbers.
+    /// On overflow, the result is wrapped around.
     ///
     /// # Warning
     ///
@@ -131,6 +132,7 @@ where
     Frac: FixedFrac,
 {
     /// Computes homomorphically an addition between two ciphertexts encrypting fixed point numbers.
+    /// On overflow, the result is wrapped around.
     ///
     /// # Warning
     ///
