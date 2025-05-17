@@ -10,6 +10,8 @@ pub mod traits;
 mod arb_fixed;
 mod types;
 mod encrypt_decrypt;
+#[cfg(test)]
+mod tests;
 
 mod ops;
 

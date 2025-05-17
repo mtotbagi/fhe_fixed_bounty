@@ -122,6 +122,7 @@ pub use strings::ascii::{EncryptableString, FheAsciiString, FheStringIsEmpty, Fh
 pub use tag::Tag;
 pub use traits::FheId;
 
+#[cfg(feature = "fixed")]
 pub use fixed::{aliases::*, traits::FixedCiphertext, FheFixedU, FheFixedI, FixedServerKey, FixedClientKey, FixedSize, FixedFrac};
 
 
