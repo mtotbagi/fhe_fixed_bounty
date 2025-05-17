@@ -52,8 +52,7 @@ impl FixedServerKey {
             /// //Encrypt:
             /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
             /// 
-            /// // Compute homomorphically an addition:
-            /// let ct_res = a.smart_abs(&skey);
+                    /// let ct_res = a.smart_abs(&skey);
             ///
             /// // Decrypt:
             /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
@@ -99,8 +98,7 @@ impl FixedServerKey {
             /// //Encrypt:
             /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
             /// 
-            /// // Compute homomorphically an addition:
-            /// let ct_res = a.smart_abs(&skey);
+                    /// let ct_res = a.smart_abs(&skey);
             ///
             /// // Decrypt:
             /// let dec_result: I8F8 = ct_res.decrypt(&ckey);

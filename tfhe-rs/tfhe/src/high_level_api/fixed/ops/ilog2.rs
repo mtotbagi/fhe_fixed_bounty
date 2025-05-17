@@ -62,7 +62,6 @@ where
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// 
-    /// // Compute homomorphically an addition:
     /// let ct_res = a.smart_ilog2(&skey);
     ///
     /// // Decrypt:
@@ -109,7 +108,6 @@ where
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// 
-    /// // Compute homomorphically an addition:
     /// let ct_res = a.smart_ilog2(&skey);
     ///
     /// // Decrypt:

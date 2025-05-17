@@ -201,8 +201,7 @@ Size: FixedSize<Frac>,
             /// //Encrypt:
             /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
             /// 
-            /// // Compute homomorphically an addition:
-            /// let ct_res = a.smart_sqrt(&skey);
+                    /// let ct_res = a.smart_sqrt(&skey);
             ///
             /// // Decrypt:
             /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
@@ -255,8 +254,7 @@ Size: FixedSize<Frac>,
             /// //Encrypt:
             /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
             /// 
-            /// // Compute homomorphically an addition:
-            /// let ct_res = a.smart_sqrt(&skey);
+                    /// let ct_res = a.smart_sqrt(&skey);
             ///
             /// // Decrypt:
             /// let dec_result: I8F8 = ct_res.decrypt(&ckey);

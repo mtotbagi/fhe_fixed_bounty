@@ -85,21 +85,180 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
+    /// Compares for equality 2 ciphertexts encrypting fixed point numbers
+    ///
+    /// Returns a ciphertext containing 1 if self == rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// let clear_b: U8F8 = U8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_eq(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a == clear_b);
+    /// ```
     pub fn smart_eq(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_eq(&mut self.inner, &mut rhs.inner)
     }
     pub fn smart_ne(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_ne(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is strictly lower than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self < rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// let clear_b: U8F8 = U8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_lt(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a < clear_b);
+    /// ```
     pub fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_lt(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is lower or equal than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self <= rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// let clear_b: U8F8 = U8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_le(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a <= clear_b);
+    /// ```
     pub fn smart_le(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_le(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is strictly greater than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self > rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// let clear_b: U8F8 = U8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_gt(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a > clear_b);
+    /// ```
     pub fn smart_gt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_gt(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is greater or equal than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self >= rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// let clear_b: U8F8 = U8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_ge(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a >= clear_b);
+    /// ```
     pub fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_ge(&mut self.inner, &mut rhs.inner)
     }
@@ -129,21 +288,180 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
+    /// Compares for equality 2 ciphertexts encrypting fixed point numbers
+    ///
+    /// Returns a ciphertext containing 1 if self == rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// let clear_b: I8F8 = I8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_eq(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a == clear_b);
+    /// ```
     pub fn smart_eq(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_eq(&mut self.inner, &mut rhs.inner)
     }
     pub fn smart_ne(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_ne(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is strictly lower than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self < rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// let clear_b: I8F8 = I8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_lt(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a < clear_b);
+    /// ```
     pub fn smart_lt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_lt(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is lower or equal than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self <= rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// let clear_b: I8F8 = I8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_le(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a <= clear_b);
+    /// ```
     pub fn smart_le(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_le(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is strictly greater than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self > rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// let clear_b: I8F8 = I8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_gt(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a > clear_b);
+    /// ```
     pub fn smart_gt(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_gt(&mut self.inner, &mut rhs.inner)
     }
+
+    /// Compares if self is greater or equal than rhs
+    ///
+    /// Returns a ciphertext containing 1 if self >= rhs, otherwise 0
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::aliases::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(12.8);
+    /// let clear_b: I8F8 = I8F8::from_num(1.8);
+    /// 
+    /// //Encrypt:
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+    /// 
+    /// let ct_res = a.smart_ge(&mut b, &skey);
+    ///
+    /// // Decrypt:
+    /// let dec_result = ckey.key.decrypt_bool(&ct_res);
+    /// assert_eq!(dec_result, clear_a >= clear_b);
+    /// ```
     pub fn smart_ge(&mut self, rhs: &mut Self, key: &FixedServerKey) -> BooleanBlock {
         key.smart_ge(&mut self.inner, &mut rhs.inner)
     }

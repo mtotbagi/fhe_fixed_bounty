@@ -282,7 +282,6 @@ where
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
     /// 
-    /// // Compute homomorphically an addition:
     /// let ct_res = a.smart_div(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -332,7 +331,6 @@ where
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
     /// 
-    /// // Compute homomorphically an addition:
     /// let ct_res = a.smart_div(&mut b, &skey);
     ///
     /// // Decrypt:
