@@ -173,7 +173,7 @@ where
 {
     fn from(f: T) -> Self {
         // get the bits we need
-        let fixed_bits: u128 = FixedU128::<Frac>::from_num(f).to_bits();
+        let fixed_bits: u128 = FixedU128::<Frac>::wrapping_from_num(f).to_bits();
         // split it into the two sections
         let lower_bits = fixed_bits as u64;
         let upper_bits = (fixed_bits >> 64) as u64;
@@ -357,7 +357,7 @@ where
 {
     fn from(f: T) -> Self {
         // get the bits we need
-        let fixed_bits: u128 = FixedI128::<Frac>::from_num(f).to_bits() as u128;
+        let fixed_bits: u128 = FixedI128::<Frac>::wrapping_from_num(f).to_bits() as u128;
 
         // split it into the two sections
         let lower_bits = fixed_bits as u64;
