@@ -272,7 +272,13 @@ required-features = ["boolean", "shortint", "integer", "internal-keycache"]
 name = "fixed-bench"
 path = "benches/fixed/bench.rs"
 harness = false
-required-features = ["fixed", "pbs-stats", "internal-keycache"]
+required-features = ["fixed", "pbs-stats"]
+
+[[bench]]
+name = "fixed-bench-signed"
+path = "benches/fixed/signed_bench.rs"
+harness = false
+required-features = ["fixed", "pbs-stats"]
 
 # Examples used as tools
 

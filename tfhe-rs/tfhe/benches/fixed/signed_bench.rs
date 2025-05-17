@@ -8,7 +8,7 @@ use criterion::{criterion_group, Criterion};
 use rand::prelude::*;
 use std::env;
 
-use tfhe::{FheFixedU, FixedClientKey, FixedServerKey, FixedSize, FixedFrac};
+use tfhe::{FheFixedI, FixedClientKey, FixedServerKey, FixedSize, FixedFrac};
 use std::sync::LazyLock;
 
 use typenum::{U8, U16, U32, U64};
@@ -36,7 +36,7 @@ fn bench_server_key_binary_function_dirty_inputs<F, Size, Frac>(
 ) where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
-    F: Fn(&mut FheFixedU<Size, Frac>, &mut FheFixedU<Size, Frac>, &FixedServerKey),
+    F: Fn(&mut FheFixedI<Size, Frac>, &mut FheFixedI<Size, Frac>, &FixedServerKey),
 {
     let mut bench_group = c.benchmark_group(bench_name);
     bench_group
@@ -70,7 +70,7 @@ fn bench_server_key_binary_function_dirty_inputs<F, Size, Frac>(
                 carry_mod -= 1;
             }
 
-            (FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY))
+            (FheFixedI::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedI::<Size, Frac>::from_bits(ct_1, &SKEY))
         };
 
         b.iter_batched(
@@ -95,7 +95,7 @@ fn bench_server_key_binary_function_clean_inputs<F, Size, Frac>(
 ) where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
-    F: Fn(&mut FheFixedU<Size, Frac>, &mut FheFixedU<Size, Frac>, &FixedServerKey),
+    F: Fn(&mut FheFixedI<Size, Frac>, &mut FheFixedI<Size, Frac>, &FixedServerKey),
 {
     let mut bench_group = c.benchmark_group(bench_name);
     bench_group
@@ -117,7 +117,7 @@ fn bench_server_key_binary_function_clean_inputs<F, Size, Frac>(
             let clear_1 = gen_random_u128(&mut rng);
             let ct_1 = CKEY.key.encrypt_radix(clear_1, num_block);
 
-            (FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY))
+            (FheFixedI::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedI::<Size, Frac>::from_bits(ct_1, &SKEY))
         };
 
         b.iter_batched(
@@ -142,7 +142,7 @@ fn bench_server_key_unary_function_dirty_inputs<F, Size, Frac>(
 ) where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
-    F: Fn(&mut FheFixedU<Size, Frac>, &FixedServerKey),
+    F: Fn(&mut FheFixedI<Size, Frac>, &FixedServerKey),
 {
     let mut bench_group = c.benchmark_group(bench_name);
     bench_group
@@ -172,7 +172,7 @@ fn bench_server_key_unary_function_dirty_inputs<F, Size, Frac>(
                 carry_mod -= 1;
             }
 
-            FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY)
+            FheFixedI::<Size, Frac>::from_bits(ct_0, &SKEY)
         };
 
         b.iter_batched(
@@ -197,7 +197,7 @@ fn bench_server_key_unary_function_clean_inputs<F, Size, Frac>(
 ) where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
-    F: Fn(&mut FheFixedU<Size, Frac>, &FixedServerKey),
+    F: Fn(&mut FheFixedI<Size, Frac>, &FixedServerKey),
 {
     let mut bench_group = c.benchmark_group(bench_name);
     bench_group
@@ -216,7 +216,7 @@ fn bench_server_key_unary_function_clean_inputs<F, Size, Frac>(
             let clear_0 = gen_random_u128(&mut rng);
             let ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
 
-            FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY)
+            FheFixedI::<Size, Frac>::from_bits(ct_0, &SKEY)
         };
 
         b.iter_batched(

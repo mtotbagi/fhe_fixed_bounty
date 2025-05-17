@@ -35,7 +35,7 @@ impl FixedServerKey {
 
     pub(crate) fn smart_dbl<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
         let mut result_value = c.clone();
-        self.unchecked_dbl_assign(&mut result_value);
+        self.smart_dbl_assign(&mut result_value);
         result_value
     }
 

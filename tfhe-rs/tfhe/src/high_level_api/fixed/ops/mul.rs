@@ -72,8 +72,6 @@ impl FixedServerKey {
     }
 
     pub(crate) fn smart_sqr<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
-        assert!(c.size() >= c.frac());
-
         if !c.bits().block_carries_are_empty() {
             self.key.full_propagate_parallelized(c.bits_mut());
         }
