@@ -75,7 +75,7 @@ macro_rules! measure_print {
 #[macro_export]
 macro_rules! print_result {
     ($client_key:ident, $encrypted:expr, $name:expr, $total_size:expr, $frac_size:expr) => {
-        let clear = $encrypted.decrypt(&$client_key);
+        let clear:ArbFixedU<_,_> = $encrypted.decrypt(&$client_key);
         print_result!(clear, $name, $total_size, $frac_size)
     };
     ($result:expr, $name:expr, $total_size:expr, $frac_size:expr) => {
@@ -113,7 +113,7 @@ macro_rules! test_func_manual {
         measure_print!(
             $(
                 #[allow(unused_mut)]
-                let mut $encrypted = FheType::encrypt($clear, &$client_key)
+                let mut $encrypted = FheType::encrypt_trivial($clear, &$server_key)
             ),*
         ; "encrypting the inputs");
 
