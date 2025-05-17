@@ -40,7 +40,7 @@ impl FixedServerKey {
             /// # Example
             /// ```rust
             /// use tfhe::{FixedClientKey, FixedServerKey};
-            /// use tfhe::aliases::FheU8F8;
+            /// use tfhe::FheU8F8;
             /// use fixed::types::U8F8;
             /// 
             /// // Generate the client key and the server key:
@@ -56,7 +56,7 @@ impl FixedServerKey {
             ///
             /// // Decrypt:
             /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-            /// assert_eq!(dec_result, clear_a.abs());
+            /// assert_eq!(dec_result, clear_a);
             /// ```
             pub fn smart_abs(&mut self, key: &FixedServerKey) -> Self {
                 Self {
@@ -86,7 +86,7 @@ impl FixedServerKey {
             /// # Example
             /// ```rust
             /// use tfhe::{FixedClientKey, FixedServerKey};
-            /// use tfhe::aliases::FheI8F8;
+            /// use tfhe::FheI8F8;
             /// use fixed::types::I8F8;
             /// 
             /// // Generate the client key and the server key:

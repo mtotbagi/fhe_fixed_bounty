@@ -175,7 +175,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -209,7 +209,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -243,7 +243,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -277,7 +277,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -318,7 +318,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -352,7 +352,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -386,7 +386,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -420,7 +420,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:

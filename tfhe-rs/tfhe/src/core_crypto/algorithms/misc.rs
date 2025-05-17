@@ -246,7 +246,7 @@ mod test {
 
     #[test]
     fn test_convert_integer_truncate_u64_f64() {
-        let check_value = |value, exact_match: bool| {
+        let check_value = |value: u64, exact_match: bool| {
             let value_trunc_f64: f64 = convert_unsigned_integer_to_float_truncate(value);
             let roundtrip_value = value_trunc_f64 as u64;
 

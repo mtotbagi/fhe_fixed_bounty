@@ -142,7 +142,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -161,7 +161,7 @@ where
     ///
     /// // Decrypt:
     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-    /// assert_eq!(dec_result, clear_a + clear_b);
+    /// assert_eq!(dec_result, clear_a * clear_b);
     /// ```
     pub fn smart_mul(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
         Self {
@@ -190,7 +190,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -242,7 +242,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -261,7 +261,7 @@ where
     ///
     /// // Decrypt:
     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-    /// assert_eq!(dec_result, clear_a + clear_b);
+    /// assert_eq!(dec_result, clear_a * clear_b);
     /// ```
     pub fn smart_mul(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
         Self {
@@ -289,7 +289,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:

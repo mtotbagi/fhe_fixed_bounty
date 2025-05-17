@@ -694,7 +694,7 @@ fn integer_unchecked_scalar_decomposition_overflow(param: ClassicPBSParameters) 
     let ct_0 = cks.encrypt_radix(clear_0, num_block);
 
     let ct_res = sks.unchecked_scalar_add(&ct_0, scalar);
-    let dec_res = cks.decrypt_radix(&ct_res);
+    let dec_res: u128 = cks.decrypt_radix(&ct_res);
 
     assert_eq!(clear_0.wrapping_add(scalar as u128), dec_res);
 
@@ -705,7 +705,7 @@ fn integer_unchecked_scalar_decomposition_overflow(param: ClassicPBSParameters) 
     let ct_0 = cks.encrypt_radix(clear_0, num_block);
 
     let ct_res = sks.unchecked_scalar_sub(&ct_0, scalar);
-    let dec_res = cks.decrypt_radix(&ct_res);
+    let dec_res: u128 = cks.decrypt_radix(&ct_res);
 
     assert_eq!(clear_0.wrapping_sub(scalar as u128), dec_res);
 }
@@ -731,7 +731,7 @@ fn integer_smart_scalar_mul_decomposition_overflow() {
     let mut ct_0 = cks.encrypt_radix(clear_0, num_block);
 
     let ct_res = sks.smart_scalar_mul(&mut ct_0, scalar);
-    let dec_res = cks.decrypt_radix(&ct_res);
+    let dec_res: u128 = cks.decrypt_radix(&ct_res);
 
     assert_eq!(clear_0.wrapping_mul(scalar as u128), dec_res);
 }

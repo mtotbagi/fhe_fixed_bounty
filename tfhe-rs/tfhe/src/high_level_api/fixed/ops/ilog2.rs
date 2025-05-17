@@ -50,7 +50,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheU8F8;
+    /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -65,7 +65,7 @@ where
     /// let ct_res = a.smart_ilog2(&skey);
     ///
     /// // Decrypt:
-    /// let dec_result: i32 = ckey.key.decrypt(&ct_res);
+    /// let dec_result: i32 = ckey.key.decrypt_signed_radix(&ct_res);
     /// assert_eq!(dec_result, clear_a.int_log2());
     /// ```
     pub fn smart_ilog2(
@@ -96,7 +96,7 @@ where
     /// # Example
     /// ```rust
     /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::aliases::FheI8F8;
+    /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// 
     /// // Generate the client key and the server key:
@@ -111,7 +111,7 @@ where
     /// let ct_res = a.smart_ilog2(&skey);
     ///
     /// // Decrypt:
-    /// let dec_result: i32 = ckey.key.decrypt(&ct_res);
+    /// let dec_result: i32 = ckey.key.decrypt_signed_radix(&ct_res);
     /// assert_eq!(dec_result, clear_a.int_log2());
     /// ```
     pub fn smart_ilog2(
