@@ -8,19 +8,18 @@ use criterion::{criterion_group, Criterion};
 use rand::prelude::*;
 use std::env;
 
-use tfhe::{FheFixedU, FixedClientKey, FixedServerKey, FixedSize, FixedFrac, FixedCiphertext};
 use std::sync::LazyLock;
+use tfhe::{FheFixedU, FixedCiphertext, FixedClientKey, FixedFrac, FixedServerKey, FixedSize};
 
-use typenum::{U0, U8, U16, U32, U64, U128};
+use typenum::{U0, U128, U16, U32, U64, U8};
 /// The type used to hold scalar values
 /// It must be as big as the largest bit size tested
 type ScalarType = u128;
 
 const PARAM: tfhe::shortint::ClassicPBSParameters =
     tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
-    static CKEY: LazyLock<FixedClientKey> = LazyLock::new(|| FixedClientKey::new());
-    static SKEY: LazyLock<FixedServerKey> = LazyLock::new(|| FixedServerKey::new(&CKEY));
-
+static CKEY: LazyLock<FixedClientKey> = LazyLock::new(|| FixedClientKey::new());
+static SKEY: LazyLock<FixedServerKey> = LazyLock::new(|| FixedServerKey::new(&CKEY));
 
 fn gen_random_u128(rng: &mut ThreadRng) -> u128 {
     rng.gen::<u128>()
@@ -50,7 +49,6 @@ fn bench_server_key_binary_function_dirty_inputs<F, Size, Frac>(
 
     let bench_id = format!("{bench_name}::{size}::{frac}");
     bench_group.bench_function(&bench_id, |b| {
-
         let encrypt_two_values = || {
             let clear_0 = gen_random_u128(&mut rng);
             let mut ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
@@ -70,7 +68,10 @@ fn bench_server_key_binary_function_dirty_inputs<F, Size, Frac>(
                 carry_mod -= 1;
             }
 
-            (FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY))
+            (
+                FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY),
+                FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY),
+            )
         };
 
         b.iter_batched(
@@ -109,7 +110,6 @@ fn bench_server_key_binary_function_clean_inputs<F, Size, Frac>(
 
     let bench_id = format!("{bench_name}::{size}::{frac}");
     bench_group.bench_function(&bench_id, |b| {
-
         let encrypt_two_values = || {
             let clear_0 = gen_random_u128(&mut rng);
             let ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
@@ -117,7 +117,10 @@ fn bench_server_key_binary_function_clean_inputs<F, Size, Frac>(
             let clear_1 = gen_random_u128(&mut rng);
             let ct_1 = CKEY.key.encrypt_radix(clear_1, num_block);
 
-            (FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY), FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY))
+            (
+                FheFixedU::<Size, Frac>::from_bits(ct_0, &SKEY),
+                FheFixedU::<Size, Frac>::from_bits(ct_1, &SKEY),
+            )
         };
 
         b.iter_batched(
@@ -156,7 +159,6 @@ fn bench_server_key_unary_function_dirty_inputs<F, Size, Frac>(
 
     let bench_id = format!("{bench_name}::{size}::{frac}");
     bench_group.bench_function(&bench_id, |b| {
-
         let encrypt_value = || {
             let clear_0 = gen_random_u128(&mut rng);
             let mut ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
@@ -211,7 +213,6 @@ fn bench_server_key_unary_function_clean_inputs<F, Size, Frac>(
 
     let bench_id = format!("{bench_name}::{size}::{frac}");
     bench_group.bench_function(&bench_id, |b| {
-
         let encrypt_value = || {
             let clear_0 = gen_random_u128(&mut rng);
             let ct_0 = CKEY.key.encrypt_radix(clear_0, num_block);
@@ -230,7 +231,6 @@ fn bench_server_key_unary_function_clean_inputs<F, Size, Frac>(
 
     bench_group.finish()
 }
-
 
 macro_rules! define_server_key_bench_unary_fn (
     (method_name: $server_key_method:ident, display_name:$name:ident) => {
@@ -416,7 +416,6 @@ macro_rules! define_server_key_bench_trunc_default_fn (
 
 // TODO roundings
 
-
 define_server_key_bench_fn!(method_name: smart_add, display_name: add);
 define_server_key_bench_fn!(method_name: smart_sub, display_name: sub);
 define_server_key_bench_fn!(method_name: smart_mul, display_name: mul);
@@ -521,70 +520,73 @@ criterion_group!(
     unchecked_ge,
 );
 
-criterion_group!(
-    integer_div_comparison,
-    default_div,
-    improved_div,
-);
+criterion_group!(integer_div_comparison, default_div, improved_div,);
 
 fn improved_div(c: &mut Criterion) {
-            bench_server_key_binary_function_dirty_inputs::<_, U16, U0>(
-                c,
-                concat!("fixed::", stringify!(abel_div)),
-                stringify!(adiv),
-                |lhs, rhs, server_key| {
-                    lhs.smart_div(rhs, server_key);
-                }
-            );
+    bench_server_key_binary_function_dirty_inputs::<_, U16, U0>(
+        c,
+        concat!("fixed::", stringify!(abel_div)),
+        stringify!(adiv),
+        |lhs, rhs, server_key| {
+            lhs.smart_div(rhs, server_key);
+        },
+    );
 
-            bench_server_key_binary_function_dirty_inputs::<_, U32, U0>(
-                c,
-                concat!("fixed::", stringify!(abel_div)),
-                stringify!(adiv),
-                |lhs, rhs, server_key| {
-                    lhs.smart_div(rhs, server_key);
-                }
-            );
+    bench_server_key_binary_function_dirty_inputs::<_, U32, U0>(
+        c,
+        concat!("fixed::", stringify!(abel_div)),
+        stringify!(adiv),
+        |lhs, rhs, server_key| {
+            lhs.smart_div(rhs, server_key);
+        },
+    );
 
-            bench_server_key_binary_function_dirty_inputs::<_, U64, U0>(
-                c,
-                concat!("fixed::", stringify!(abel_div)),
-                stringify!(adiv),
-                |lhs, rhs, server_key| {
-                    lhs.smart_div(rhs, server_key);
-                }
-            );
+    bench_server_key_binary_function_dirty_inputs::<_, U64, U0>(
+        c,
+        concat!("fixed::", stringify!(abel_div)),
+        stringify!(adiv),
+        |lhs, rhs, server_key| {
+            lhs.smart_div(rhs, server_key);
+        },
+    );
 }
 
 fn default_div(c: &mut Criterion) {
-            bench_server_key_binary_function_dirty_inputs::<_, U16, U0>(
-                c,
-                concat!("fixed::", stringify!(default_div)),
-                stringify!(ddiv),
-                |lhs, rhs, server_key| {
-                    server_key.key.smart_div_assign_parallelized(&mut lhs.clone().into_bits(), &mut rhs.clone().into_bits());
-                }
+    bench_server_key_binary_function_dirty_inputs::<_, U16, U0>(
+        c,
+        concat!("fixed::", stringify!(default_div)),
+        stringify!(ddiv),
+        |lhs, rhs, server_key| {
+            server_key.key.smart_div_assign_parallelized(
+                &mut lhs.clone().into_bits(),
+                &mut rhs.clone().into_bits(),
             );
+        },
+    );
 
-            bench_server_key_binary_function_dirty_inputs::<_, U32, U0>(
-                c,
-                concat!("fixed::", stringify!(default_div)),
-                stringify!(ddiv),
-                |lhs, rhs, server_key| {
-                    server_key.key.smart_div_assign_parallelized(&mut lhs.clone().into_bits(), &mut rhs.clone().into_bits());
-
-                }
+    bench_server_key_binary_function_dirty_inputs::<_, U32, U0>(
+        c,
+        concat!("fixed::", stringify!(default_div)),
+        stringify!(ddiv),
+        |lhs, rhs, server_key| {
+            server_key.key.smart_div_assign_parallelized(
+                &mut lhs.clone().into_bits(),
+                &mut rhs.clone().into_bits(),
             );
+        },
+    );
 
-            bench_server_key_binary_function_dirty_inputs::<_, U64, U0>(
-                c,
-                concat!("fixed::", stringify!(default_div)),
-                stringify!(ddiv),
-                |lhs, rhs, server_key| {
-                    server_key.key.smart_div_assign_parallelized(&mut lhs.clone().into_bits(), &mut rhs.clone().into_bits());
-
-                }
+    bench_server_key_binary_function_dirty_inputs::<_, U64, U0>(
+        c,
+        concat!("fixed::", stringify!(default_div)),
+        stringify!(ddiv),
+        |lhs, rhs, server_key| {
+            server_key.key.smart_div_assign_parallelized(
+                &mut lhs.clone().into_bits(),
+                &mut rhs.clone().into_bits(),
             );
+        },
+    );
 }
 
 // criterion_group!(
@@ -614,10 +616,9 @@ fn go_through_cpu_bench_groups(val: &str) {
             smart_ops();
             smart_ops_comp();
             smart_ops_round();
-        },
+        }
     };
 }
-
 
 fn main() {
     BENCH_TYPE.get_or_init(|| BenchmarkType::from_env().unwrap());

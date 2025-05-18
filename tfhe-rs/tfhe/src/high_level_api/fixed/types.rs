@@ -1,7 +1,7 @@
 use super::traits::{FixedCiphertext, FixedCiphertextInner, FixedFrac, FixedSize};
-use std::marker::PhantomData;
-use crate::integer::IntegerCiphertext;
 use crate::high_level_api::fixed::Bits;
+use crate::integer::IntegerCiphertext;
+use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedU<Size, Frac> {

@@ -1,43 +1,41 @@
 macro_rules! encrypt_for_test {
     ($LhsBits:expr, $RhsBits:expr,
         $FheFixed:ty, $Fixed:ty, $TrivialEncrypt:expr) => {
-        
         if $TrivialEncrypt {
-            let (lhs_fixed, rhs_fixed) = 
-                (<$Fixed>::from_bits($LhsBits as _), <$Fixed>::from_bits($RhsBits as _));
+            let (lhs_fixed, rhs_fixed) = (
+                <$Fixed>::from_bits($LhsBits as _),
+                <$Fixed>::from_bits($RhsBits as _),
+            );
             (
                 <$FheFixed>::encrypt_trivial(lhs_fixed, &SKEY),
                 <$FheFixed>::encrypt_trivial(rhs_fixed, &SKEY),
-                lhs_fixed, rhs_fixed
+                lhs_fixed,
+                rhs_fixed,
             )
         } else {
-            let (lhs_fixed, rhs_fixed) = 
-                (<$Fixed>::from_bits($LhsBits as _), <$Fixed>::from_bits($RhsBits as _));
+            let (lhs_fixed, rhs_fixed) = (
+                <$Fixed>::from_bits($LhsBits as _),
+                <$Fixed>::from_bits($RhsBits as _),
+            );
             (
                 <$FheFixed>::encrypt(lhs_fixed, &CKEY),
                 <$FheFixed>::encrypt(rhs_fixed, &CKEY),
-                lhs_fixed, rhs_fixed
+                lhs_fixed,
+                rhs_fixed,
             )
         }
     };
 
     ($ClearBits:expr, $FheFixed:ty,
         $Fixed:ty, $TrivialEncrypt:expr) => {
-        
         if $TrivialEncrypt {
             let fixed = <$Fixed>::from_bits($ClearBits as _);
-            (
-                <$FheFixed>::encrypt_trivial(fixed, &SKEY),
-                fixed
-            )
+            (<$FheFixed>::encrypt_trivial(fixed, &SKEY), fixed)
         } else {
             let fixed = <$Fixed>::from_bits($ClearBits as _);
-            (
-                <$FheFixed>::encrypt(fixed, &CKEY),
-                fixed
-            )
+            (<$FheFixed>::encrypt(fixed, &CKEY), fixed)
         }
-    }
+    };
 }
 
 // Basic op tests
@@ -47,21 +45,16 @@ macro_rules! test_unary_op {
         $EncryptedMethod:ident, $ClearMethod:ident,
         $FheFixed:ty, $Fixed:ty,
         $TrivialEncrypt:expr) => {
-
-        let (mut lhs, fixed) =
-            encrypt_for_test!($ClearBits, $FheFixed, $Fixed, $TrivialEncrypt);
+        let (mut lhs, fixed) = encrypt_for_test!($ClearBits, $FheFixed, $Fixed, $TrivialEncrypt);
 
         let clear_res = <$Fixed>::$ClearMethod(fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &SKEY);
-        let decrypted_res :$Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
+        let decrypted_res: $Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
 
         assert_eq!(
-            clear_res,
-            decrypted_res,
+            clear_res, decrypted_res,
             "expected: {}, got: {}, from: {}",
-            clear_res,
-            decrypted_res,
-            $ClearBits,
+            clear_res, decrypted_res, $ClearBits,
         );
     };
 }
@@ -70,22 +63,17 @@ macro_rules! test_bin_op {
     ($LhsBits:expr, $RhsBits:expr,
         $EncryptedMethod:ident, $ClearMethod:ident,
         $FheFixed:ty, $Fixed:ty, $TrivialEncrypt:expr) => {
-        
         let (mut lhs, mut rhs, lhs_fixed, rhs_fixed) =
             encrypt_for_test!($LhsBits, $RhsBits, $FheFixed, $Fixed, $TrivialEncrypt);
 
         let clear_res = <$Fixed>::$ClearMethod(lhs_fixed, rhs_fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
-        let decrypted_res :$Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
-        
+        let decrypted_res: $Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
+
         assert_eq!(
-            clear_res,
-            decrypted_res,
+            clear_res, decrypted_res,
             "expected: {}, got: {}, from: {}, {}",
-            clear_res,
-            decrypted_res,
-            $LhsBits,
-            $RhsBits
+            clear_res, decrypted_res, $LhsBits, $RhsBits
         );
     };
 }
@@ -95,21 +83,16 @@ macro_rules! test_sqr {
         $EncryptedMethod:ident, $ClearMethod:ident,
         $FheFixed:ty, $Fixed:ty,
         $TrivialEncrypt:expr) => {
-
-        let (mut lhs, fixed) =
-            encrypt_for_test!($ClearBits, $FheFixed, $Fixed, $TrivialEncrypt);
+        let (mut lhs, fixed) = encrypt_for_test!($ClearBits, $FheFixed, $Fixed, $TrivialEncrypt);
 
         let clear_res = <$Fixed>::$ClearMethod(fixed, fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &SKEY);
-        let decrypted_res :$Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
-        
+        let decrypted_res: $Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
+
         assert_eq!(
-            clear_res,
-            decrypted_res,
+            clear_res, decrypted_res,
             "expected: {}, got: {}, from: {}",
-            clear_res,
-            decrypted_res,
-            $ClearBits,
+            clear_res, decrypted_res, $ClearBits,
         );
     };
 }
@@ -119,21 +102,16 @@ macro_rules! test_ilog2 {
         $EncryptedMethod:ident, $ClearMethod:ident,
         $FheFixed:ty, $Fixed:ty,
         $TrivialEncrypt:expr) => {
-
-        let (mut lhs, fixed) =
-            encrypt_for_test!($ClearBits, $FheFixed, $Fixed, $TrivialEncrypt);
+        let (mut lhs, fixed) = encrypt_for_test!($ClearBits, $FheFixed, $Fixed, $TrivialEncrypt);
 
         let clear_res: i32 = <$Fixed>::$ClearMethod(fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &SKEY);
         let decrypted_res: i32 = CKEY.key.decrypt_signed_radix(&encrypted_res);
-        
+
         assert_eq!(
-            clear_res,
-            decrypted_res,
+            clear_res, decrypted_res,
             "expected: {}, got: {}, from: {}",
-            clear_res,
-            decrypted_res,
-            $ClearBits,
+            clear_res, decrypted_res, $ClearBits,
         );
     };
 }
@@ -143,22 +121,17 @@ macro_rules! test_comp {
         $EncryptedMethod:ident, $ClearMethod:ident,
         $FheFixed:ty, $Fixed:ty,
         $TrivialEncrypt:expr) => {
-
         let (mut lhs, mut rhs, lhs_fixed, rhs_fixed) =
             encrypt_for_test!($LhsBits, $RhsBits, $FheFixed, $Fixed, $TrivialEncrypt);
 
         let clear_res = <$Fixed>::$ClearMethod(&lhs_fixed, &rhs_fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
         let decrypted_res = CKEY.key.decrypt_bool(&encrypted_res);
-        
+
         assert_eq!(
-            clear_res,
-            decrypted_res,
+            clear_res, decrypted_res,
             "expected: {}, got: {}, from: {}, {}",
-            clear_res,
-            decrypted_res,
-            $LhsBits,
-            $RhsBits
+            clear_res, decrypted_res, $LhsBits, $RhsBits
         );
     };
 }
@@ -705,13 +678,13 @@ macro_rules! test_comp_exhaustive_u8 {
             )*
         }
     };
-    
+
     (method_name: $MethodName:literal) => {
         test_comp_exhaustive_u8!(method_name: $MethodName, (size: 8, (0,1,2,3,4,5,6,7,8)));
     };
 }
 
-use crate::high_level_api::fixed::{FheFixedU, FheFixedI, FixedClientKey, FixedServerKey};
+use crate::high_level_api::fixed::{FheFixedI, FheFixedU, FixedClientKey, FixedServerKey};
 use rand::random;
 use std::sync::LazyLock;
 
@@ -852,7 +825,7 @@ test_unary_op_random_encrypted!(method_name: "round",
 test_comp_exhaustive_u8!(method_name: "eq");
 test_comp_extensive!(method_name: "eq",
     (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
-    (size: 64, iter: 128, (0, 64)) 
+    (size: 64, iter: 128, (0, 64))
 );
 test_comp_random_encrypted!(method_name: "eq",
     (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
@@ -864,7 +837,7 @@ test_comp_random_encrypted!(method_name: "eq",
 test_comp_exhaustive_u8!(method_name: "ne");
 test_comp_extensive!(method_name: "ne",
     (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
-    (size: 64, iter: 128, (0, 64)) 
+    (size: 64, iter: 128, (0, 64))
 );
 test_comp_random_encrypted!(method_name: "ne",
     (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
@@ -876,20 +849,19 @@ test_comp_random_encrypted!(method_name: "ne",
 test_comp_exhaustive_u8!(method_name: "le");
 test_comp_extensive!(method_name: "le",
     (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
-    (size: 64, iter: 128, (0, 64)) 
-);    
+    (size: 64, iter: 128, (0, 64))
+);
 test_comp_random_encrypted!(method_name: "le",
     (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
     (size: 64, iter: 4, (0, 64))
 );
-
 
 // Testing lt
 
 test_comp_exhaustive_u8!(method_name: "lt");
 test_comp_extensive!(method_name: "lt",
     (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
-    (size: 64, iter: 128, (0, 64)) 
+    (size: 64, iter: 128, (0, 64))
 );
 test_comp_random_encrypted!(method_name: "lt",
     (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
@@ -901,7 +873,7 @@ test_comp_random_encrypted!(method_name: "lt",
 test_comp_exhaustive_u8!(method_name: "ge");
 test_comp_extensive!(method_name: "ge",
     (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
-    (size: 64, iter: 128, (0, 64)) 
+    (size: 64, iter: 128, (0, 64))
 );
 test_comp_random_encrypted!(method_name: "ge",
     (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),
@@ -913,7 +885,7 @@ test_comp_random_encrypted!(method_name: "ge",
 test_comp_exhaustive_u8!(method_name: "gt");
 test_comp_extensive!(method_name: "gt",
     (size: 16, iter: 1024, (0, 1, 4, 8, 14, 16)),
-    (size: 64, iter: 128, (0, 64)) 
+    (size: 64, iter: 128, (0, 64))
 );
 test_comp_random_encrypted!(method_name: "gt",
     (size: 16, iter: 8, (0, 1, 4, 8, 14, 16)),

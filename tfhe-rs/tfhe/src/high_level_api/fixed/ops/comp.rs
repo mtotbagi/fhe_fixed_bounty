@@ -1,6 +1,11 @@
-use crate::integer::{BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext};
+use crate::integer::{
+    BooleanBlock, IntegerCiphertext, IntegerRadixCiphertext, SignedRadixCiphertext,
+};
 
-use crate::high_level_api::fixed::{FheFixedU, FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
+use crate::high_level_api::fixed::{
+    traits::{FixedFrac, FixedSize},
+    FheFixedU, FixedCiphertextInner,
+};
 use crate::FixedServerKey;
 
 use crate::high_level_api::fixed::propagate_if_needed_parallelized;
@@ -32,50 +37,48 @@ impl FixedServerKey {
         self.unchecked_ge(lhs, rhs)
     }
 
-    fn unchecked_eq<T: FixedCiphertextInner>(&self, lhs:  &T, rhs:  &T) -> BooleanBlock {
+    fn unchecked_eq<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         // this is the same regardless of sign
-        self.key
-        .unchecked_eq_parallelized(lhs.bits(),  rhs.bits())
+        self.key.unchecked_eq_parallelized(lhs.bits(), rhs.bits())
     }
-    fn unchecked_ne<T: FixedCiphertextInner>(&self, lhs:  &T, rhs:  &T) -> BooleanBlock {
+    fn unchecked_ne<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         // this is the same regardless of sign
-        self.key
-            .unchecked_ne_parallelized(lhs.bits(),  rhs.bits())
+        self.key.unchecked_ne_parallelized(lhs.bits(), rhs.bits())
     }
-    fn unchecked_lt<T: FixedCiphertextInner>(&self, lhs:  &T, rhs:  &T) -> BooleanBlock {
+    fn unchecked_lt<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
-            self.key.unchecked_lt_parallelized(&lhs_signed,  &rhs_signed)
+            self.key.unchecked_lt_parallelized(&lhs_signed, &rhs_signed)
         } else {
-            self.key.unchecked_lt_parallelized(lhs.bits(),  rhs.bits())
+            self.key.unchecked_lt_parallelized(lhs.bits(), rhs.bits())
         }
     }
-    fn unchecked_le<T: FixedCiphertextInner>(&self, lhs:  &T, rhs:  &T) -> BooleanBlock {
+    fn unchecked_le<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
-            self.key.unchecked_le_parallelized(&lhs_signed,  &rhs_signed)
+            self.key.unchecked_le_parallelized(&lhs_signed, &rhs_signed)
         } else {
-            self.key.unchecked_le_parallelized(lhs.bits(),  rhs.bits())
+            self.key.unchecked_le_parallelized(lhs.bits(), rhs.bits())
         }
     }
-    fn unchecked_gt<T: FixedCiphertextInner>(&self, lhs:  &T, rhs:  &T) -> BooleanBlock {
+    fn unchecked_gt<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
-            self.key.unchecked_gt_parallelized(&lhs_signed,  &rhs_signed)
+            self.key.unchecked_gt_parallelized(&lhs_signed, &rhs_signed)
         } else {
-            self.key.unchecked_gt_parallelized(lhs.bits(),  rhs.bits())
+            self.key.unchecked_gt_parallelized(lhs.bits(), rhs.bits())
         }
     }
-    fn unchecked_ge<T: FixedCiphertextInner>(&self, lhs:  &T, rhs:  &T) -> BooleanBlock {
+    fn unchecked_ge<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
-            self.key.unchecked_ge_parallelized(&lhs_signed,  &rhs_signed)
+            self.key.unchecked_ge_parallelized(&lhs_signed, &rhs_signed)
         } else {
-            self.key.unchecked_ge_parallelized(lhs.bits(),  rhs.bits())
+            self.key.unchecked_ge_parallelized(lhs.bits(), rhs.bits())
         }
     }
 }
@@ -98,18 +101,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_eq(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -136,18 +139,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_lt(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -171,18 +174,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_le(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -206,18 +209,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_gt(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -241,18 +244,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_ge(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -301,18 +304,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_eq(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -339,18 +342,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_lt(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -374,18 +377,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_le(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -409,18 +412,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_gt(&mut b, &skey);
     ///
     /// // Decrypt:
@@ -444,18 +447,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_ge(&mut b, &skey);
     ///
     /// // Decrypt:

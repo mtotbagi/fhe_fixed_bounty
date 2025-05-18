@@ -1,5 +1,8 @@
-use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::FixedServerKey;
+use crate::high_level_api::fixed::{
+    traits::{FixedFrac, FixedSize},
+    FixedCiphertextInner,
+};
 
 use crate::{FheFixedI, FheFixedU};
 
@@ -45,16 +48,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_neg(&skey);
     ///
     /// // Decrypt:
@@ -96,16 +99,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_neg(&skey);
     ///
     /// // Decrypt:

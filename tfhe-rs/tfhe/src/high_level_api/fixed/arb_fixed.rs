@@ -6,7 +6,10 @@ use std::marker::PhantomData;
 use super::traits::{FixedFrac, FixedSize};
 use fixed::traits::{Fixed, FromFixed, ToFixed};
 use fixed::types::extra::{LeEqU128, LeEqU16, LeEqU32, LeEqU64, LeEqU8};
-use fixed::{FixedI128, FixedI16, FixedI32, FixedI64, FixedI8, FixedU128, FixedU16, FixedU32, FixedU64, FixedU8};
+use fixed::{
+    FixedI128, FixedI16, FixedI32, FixedI64, FixedI8, FixedU128, FixedU16, FixedU32, FixedU64,
+    FixedU8,
+};
 use typenum::Unsigned;
 
 #[derive(Clone)]
@@ -55,7 +58,6 @@ impl<Size, Frac> PartialEq for ArbFixedU<Size, Frac> {
         self.parts == rhs.parts
     }
 }
-
 
 impl<Size, Frac> Eq for ArbFixedU<Size, Frac> {}
 
@@ -309,7 +311,6 @@ where
         FixedI8::<Frac>::from_bits(arb.parts[0] as i8)
     }
 }
-
 
 /* This now works for any type which implements ToFixed
 (Which is basically every builtin numeric type, and every fixed type) */

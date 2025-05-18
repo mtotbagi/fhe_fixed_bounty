@@ -1,4 +1,4 @@
-use typenum::{B0, Cmp, IsGreaterOrEqual, Same, True, U0, U2, UInt, Unsigned};
+use typenum::{Cmp, IsGreaterOrEqual, Same, True, UInt, Unsigned, B0, U0, U2};
 
 use super::Bits;
 

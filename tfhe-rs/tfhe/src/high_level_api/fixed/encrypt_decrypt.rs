@@ -3,11 +3,9 @@ use crate::shortint::Ciphertext;
 
 use super::arb_fixed::{ArbFixedI, ArbFixedU};
 use super::{FheFixedI, FixedClientKey};
-use crate::FixedCiphertext;
+use crate::high_level_api::fixed::{Bits, FixedServerKey};
 use crate::FheFixedU;
-use crate::high_level_api::fixed::{
-    Bits, FixedServerKey
-};
+use crate::FixedCiphertext;
 
 use crate::high_level_api::fixed::traits::{FixedFrac, FixedSize};
 
@@ -26,13 +24,13 @@ where
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
     /// use crate::tfhe::FixedCiphertext;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let a_bits = ckey.key.encrypt_radix(clear_a.to_bits(), FheU8F8::SIZE as usize / 2);
     /// let a = FheU8F8::from_bits(a_bits, &skey);
     ///
@@ -67,13 +65,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     ///
     /// let dec_result: U8F8 = a.decrypt(&ckey);
@@ -116,13 +114,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let mut a = FheU8F8::encrypt_from_bits(vec![clear_a.to_bits() as u64], &ckey);
     ///
     /// let dec_result: U8F8 = a.decrypt(&ckey);
@@ -153,13 +151,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let mut a = FheU8F8::encrypt_trivial(clear_a, &skey);
     ///
     /// let dec_result: U8F8 = a.decrypt(&ckey);
@@ -212,13 +210,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let mut a = FheU8F8::encrypt_trivial_from_bits(vec![clear_a.to_bits() as u64], &skey);
     ///
     /// let dec_result: U8F8 = a.decrypt(&ckey);
@@ -238,13 +236,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     ///
     /// // U8F8 is explicit
@@ -270,13 +268,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     ///
     /// let dec_result = a.decrypt_to_bits(&ckey);
@@ -303,13 +301,13 @@ where
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
     /// use tfhe::FixedCiphertext;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let a_bits = ckey.key.encrypt_radix(clear_a.to_bits() as u16, FheI8F8::SIZE as usize / 2);
     /// let a = FheI8F8::from_bits(a_bits, &skey);
     ///
@@ -344,13 +342,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     ///
     /// let dec_result: I8F8 = a.decrypt(&ckey);
@@ -393,13 +391,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let a = FheI8F8::encrypt_from_bits(vec![clear_a.to_bits() as u64], &ckey);
     ///
     /// let dec_result: I8F8 = a.decrypt(&ckey);
@@ -430,13 +428,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let mut a = FheI8F8::encrypt_trivial(clear_a, &skey);
     ///
     /// let dec_result: I8F8 = a.decrypt(&ckey);
@@ -489,13 +487,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let mut a = FheI8F8::encrypt_trivial_from_bits(vec![clear_a.to_bits() as u64], &skey);
     ///
     /// let dec_result: I8F8 = a.decrypt(&ckey);
@@ -506,7 +504,6 @@ where
         Self::encrypt_trivial(fix, key)
     }
 
-
     /// Decrypts an FheFixedI to a numeric type.
     ///
     /// The clear type has to be explicit.
@@ -516,13 +513,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     ///
     /// // I8F8 is explicit
@@ -548,13 +545,13 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(-12.8);
-    /// 
+    ///
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     ///
     /// let dec_result = a.decrypt_to_bits(&ckey);

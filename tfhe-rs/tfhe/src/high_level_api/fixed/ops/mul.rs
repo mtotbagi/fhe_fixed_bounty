@@ -1,11 +1,12 @@
-use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
+use crate::high_level_api::fixed::{propagate_if_needed_parallelized, Bits, FixedServerKey};
 use crate::high_level_api::fixed::{
-    Bits, FixedServerKey, propagate_if_needed_parallelized
+    traits::{FixedFrac, FixedSize},
+    FixedCiphertextInner,
 };
 
+use crate::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey, SignedRadixCiphertext};
 use crate::{FheFixedI, FheFixedU};
 use rayon::prelude::*;
-use crate::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey, SignedRadixCiphertext};
 
 impl FixedServerKey {
     pub(crate) fn smart_mul<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
@@ -19,7 +20,7 @@ impl FixedServerKey {
         if !T::IS_SIGNED {
             let mut lhs_bits = lhs.bits().clone();
             let mut rhs_bits = rhs.bits().clone();
-    
+
             self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
                 &mut lhs_bits,
                 blocks_with_frac as usize,
@@ -28,25 +29,27 @@ impl FixedServerKey {
                 &mut rhs_bits,
                 blocks_with_frac as usize,
             );
-    
+
             self.key
                 .unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
-    
+
             if lhs.frac() % 2 != 0 {
                 self.key
                     .scalar_left_shift_assign_parallelized(&mut lhs_bits, 1);
             }
-    
+
             let mut blocks = lhs_bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
-    
+
             T::new(Bits::from_blocks(blocks))
         } else {
             let mut lhs_bits = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
-            self.key.extend_radix_with_sign_msb_assign(&mut lhs_bits, blocks_with_frac as usize);
+            self.key
+                .extend_radix_with_sign_msb_assign(&mut lhs_bits, blocks_with_frac as usize);
 
             let mut rhs_bits = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
-            self.key.extend_radix_with_sign_msb_assign(&mut rhs_bits, blocks_with_frac as usize);
+            self.key
+                .extend_radix_with_sign_msb_assign(&mut rhs_bits, blocks_with_frac as usize);
 
             self.key
                 .unchecked_mul_assign_parallelized(&mut lhs_bits, &rhs_bits);
@@ -83,10 +86,12 @@ impl FixedServerKey {
         let blocks_with_frac = (c.frac() + 1) >> 1;
         if !T::IS_SIGNED {
             let mut bits = c.bits().clone();
-    
-            self.key
-                .extend_radix_with_trivial_zero_blocks_msb_assign(&mut bits, blocks_with_frac as usize);
-    
+
+            self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
+                &mut bits,
+                blocks_with_frac as usize,
+            );
+
             smart_sqr_assign(&mut bits, &self.key);
             if !bits.block_carries_are_empty() {
                 self.key.full_propagate_parallelized(&mut bits);
@@ -94,15 +99,15 @@ impl FixedServerKey {
             if c.frac() % 2 != 0 {
                 self.key.scalar_left_shift_assign_parallelized(&mut bits, 1);
             }
-    
+
             let mut blocks = bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
-    
+
             T::new(Bits::from_blocks(blocks))
         } else {
-
             let mut bits = SignedRadixCiphertext::from_blocks(c.bits().clone().into_blocks());
-            self.key.extend_radix_with_sign_msb_assign(&mut bits, blocks_with_frac as usize);
+            self.key
+                .extend_radix_with_sign_msb_assign(&mut bits, blocks_with_frac as usize);
             smart_sqr_assign(&mut bits, &self.key);
             if !bits.block_carries_are_empty() {
                 self.key.full_propagate_parallelized(&mut bits);
@@ -114,7 +119,8 @@ impl FixedServerKey {
             let mut blocks = bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
             let signed_res = Bits::from_blocks(blocks);
-            T::new(signed_res)}
+            T::new(signed_res)
+        }
     }
 
     pub(crate) fn smart_sqr_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
@@ -142,18 +148,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// // Compute homomorphically a multiplication:
     /// let ct_res = a.smart_mul(&mut b, &skey);
     ///
@@ -190,16 +196,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(4.2);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// // Compute homomorphically the square:
     /// let ct_res = a.smart_sqr(&skey);
     ///
@@ -242,18 +248,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// // Compute homomorphically a multiplication:
     /// let ct_res = a.smart_mul(&mut b, &skey);
     ///
@@ -289,16 +295,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(4.2);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// // Compute homomorphically the square:
     /// let ct_res = a.smart_sqr(&skey);
     ///
@@ -351,11 +357,11 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
             let option_sum = key.unchecked_sum_ciphertexts_vec_parallelized(terms);
             match option_sum {
                 None => key.create_trivial_zero_radix(c.blocks().len()),
-                Some(sum) => sum
+                Some(sum) => sum,
             }
         },
         // we calculate the terms a_i * a_i, and add them together into a single ciphertext
-        || compute_block_sqrs::<T>(c, key)
+        || compute_block_sqrs::<T>(c, key),
     );
 
     // This may be done with a left shift, but that is more expensive
@@ -371,8 +377,9 @@ pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
 fn compute_block_sqrs<T: IntegerRadixCiphertext>(c: &T, key: &ServerKey) -> T {
     let message_modulus = key.key.message_modulus.0;
     let lsb_block_sqr_lut = key.key.generate_lookup_table(|x| (x * x) % message_modulus);
-    let msb_block_sqr_lut = key.key.generate_lookup_table
-        (|x| ((x% message_modulus) * (x% message_modulus)) / message_modulus);
+    let msb_block_sqr_lut = key.key.generate_lookup_table(|x| {
+        ((x % message_modulus) * (x % message_modulus)) / message_modulus
+    });
 
     let mut result: T = key.create_trivial_zero_radix::<T>(c.blocks().len());
 

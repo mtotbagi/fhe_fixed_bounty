@@ -1,24 +1,23 @@
 #![allow(dead_code)]
-use rayon::prelude::*;
 use crate::integer::IntegerRadixCiphertext;
 use crate::integer::{ClientKey, ServerKey};
-use crate::shortint::ClassicPBSParameters;
 use crate::shortint::parameters::Degree;
+use crate::shortint::ClassicPBSParameters;
+use rayon::prelude::*;
 
 pub mod aliases;
-pub mod traits;
 mod arb_fixed;
-mod types;
 mod encrypt_decrypt;
 #[cfg(test)]
 mod tests;
+pub mod traits;
+mod types;
 
 mod ops;
 
-
-pub use traits::{FixedCiphertext, FixedSize, FixedFrac};
-pub use types::{FheFixedI, FheFixedU};
 pub(crate) use traits::FixedCiphertextInner;
+pub use traits::{FixedCiphertext, FixedFrac, FixedSize};
+pub use types::{FheFixedI, FheFixedU};
 
 pub(crate) const PARAM: ClassicPBSParameters =
     crate::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
@@ -74,8 +73,6 @@ macro_rules! fhe_fixed_propagate {
 
 fhe_fixed_propagate!(FheFixedU);
 fhe_fixed_propagate!(FheFixedI);
-
-
 
 /// Given an array ciphertexts, propagates them in parallel, if their block carries are not empty
 pub(crate) fn propagate_if_needed_parallelized<T: IntegerRadixCiphertext>(

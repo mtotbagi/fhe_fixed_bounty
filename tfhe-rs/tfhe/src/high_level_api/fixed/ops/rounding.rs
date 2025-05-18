@@ -1,13 +1,17 @@
-use crate::{high_level_api::fixed::{traits::{FixedFrac, FixedSize}, FixedCiphertextInner}, integer::{prelude::ServerKeyDefaultCMux, BooleanBlock}};
-use crate::high_level_api::fixed::{
-    Bits, FixedServerKey,
+use crate::high_level_api::fixed::{Bits, FixedServerKey};
+use crate::{
+    high_level_api::fixed::{
+        traits::{FixedFrac, FixedSize},
+        FixedCiphertextInner,
+    },
+    integer::{prelude::ServerKeyDefaultCMux, BooleanBlock},
 };
 
-use crate::{FheFixedI, FheFixedU};
 use crate::{
     integer::{IntegerCiphertext, IntegerRadixCiphertext},
     shortint::Ciphertext,
 };
+use crate::{FheFixedI, FheFixedU};
 
 impl FixedServerKey {
     fn smart_floor<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
@@ -20,14 +24,17 @@ impl FixedServerKey {
         } // Now we know frac > 0
         if frac == T::SIZE {
             // The only integer representable is 0, we always round to that
-            let res_bits = self.key.create_trivial_zero_radix(T::SIZE as usize / 2usize);
+            let res_bits = self
+                .key
+                .create_trivial_zero_radix(T::SIZE as usize / 2usize);
             return T::new(res_bits);
         }
-        
+
         let tmp = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1u64);
         let mut res = self.smart_floor(&mut T::new(tmp));
-        let mut one: Bits = self.key.create_trivial_radix(1, T::SIZE as usize/2);
-        self.key.scalar_left_shift_assign_parallelized(&mut one, c.frac());
+        let mut one: Bits = self.key.create_trivial_radix(1, T::SIZE as usize / 2);
+        self.key
+            .scalar_left_shift_assign_parallelized(&mut one, c.frac());
 
         self.key
             .smart_add_assign_parallelized(res.bits_mut(), &mut one);
@@ -40,7 +47,9 @@ impl FixedServerKey {
         } // Now we know frac > 0
         if frac == T::SIZE {
             // The only integer representable is 0, we always round to that
-            let res_bits = self.key.create_trivial_zero_radix(T::SIZE as usize / 2usize);
+            let res_bits = self
+                .key
+                .create_trivial_zero_radix(T::SIZE as usize / 2usize);
             return T::new(res_bits);
         }
         // This is needed because we need to extract the sign bit
@@ -60,15 +69,13 @@ impl FixedServerKey {
                 (x >> 1) & 1
             });
 
-            let last_block = c.bits()
+            let last_block = c
+                .bits()
                 .blocks()
                 .last()
                 .expect("Cannot sign extend an empty ciphertext");
 
-            let sign_bit = self
-                .key.key
-                .apply_lookup_table(last_block, &sign_bit_lut);
-
+            let sign_bit = self.key.key.apply_lookup_table(last_block, &sign_bit_lut);
 
             let (a, b) = rayon::join(
                 || {
@@ -78,15 +85,21 @@ impl FixedServerKey {
                     // This only differs from a simple round_tie_to_plus_infinity if c was tied
                     // If that is the case then this will result in c rounding towards -infinity
                     // This is exactly what we want when c < 0
-                    let tmp = self.key.smart_scalar_sub_parallelized(c.clone().bits_mut(), 1u64);
+                    let tmp = self
+                        .key
+                        .smart_scalar_sub_parallelized(c.clone().bits_mut(), 1u64);
                     self.round_tie_to_plus_infinity(&mut T::new(tmp))
                 },
                 || {
                     // c >= 0
                     self.round_tie_to_plus_infinity(&mut c.clone())
-            });
-            let res_bits = self.key
-                .if_then_else_parallelized(&BooleanBlock::new_unchecked(sign_bit), a.bits(), b.bits());
+                },
+            );
+            let res_bits = self.key.if_then_else_parallelized(
+                &BooleanBlock::new_unchecked(sign_bit),
+                a.bits(),
+                b.bits(),
+            );
             T::new(res_bits)
         } else {
             self.round_tie_to_plus_infinity(c)
@@ -128,36 +141,34 @@ impl FixedServerKey {
         // Then create a ciphertext which represents either 1 or 0 (in the type T)
         // This can be done via a single pbs, then trivial blocks of 0
 
-        let to_add_lut = self.key.key
-            .generate_lookup_table(|half_block| {
+        let to_add_lut = self.key.key.generate_lookup_table(|half_block| {
             if T::FRAC % 2 == 1 {
                 (half_block & 1) << 1
             } else {
                 (half_block >> 1) & 1
             }
         });
-        let half_block = &c.bits()
-            .blocks()[((T::FRAC-1)/2) as usize];
+        let half_block = &c.bits().blocks()[((T::FRAC - 1) / 2) as usize];
         let (to_add_bits, mut truncated_c) = rayon::join(
             || {
-            let to_add_block = self
-                .key.key
-                .apply_lookup_table(half_block, &to_add_lut);
-            let mut to_add_bits = Bits::from_blocks(vec![to_add_block]);
-            self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut to_add_bits, (T::FRAC/2) as usize);
-            self.key.extend_radix_with_trivial_zero_blocks_msb_assign
-                (&mut to_add_bits, num_blocks - 1 - (T::FRAC/2) as usize);
-            to_add_bits
-            }, 
-            || {
-                self.smart_floor(&mut c.clone())
-            }
+                let to_add_block = self.key.key.apply_lookup_table(half_block, &to_add_lut);
+                let mut to_add_bits = Bits::from_blocks(vec![to_add_block]);
+                self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(
+                    &mut to_add_bits,
+                    (T::FRAC / 2) as usize,
+                );
+                self.key.extend_radix_with_trivial_zero_blocks_msb_assign(
+                    &mut to_add_bits,
+                    num_blocks - 1 - (T::FRAC / 2) as usize,
+                );
+                to_add_bits
+            },
+            || self.smart_floor(&mut c.clone()),
         );
-                    
+
         self.smart_add_assign(&mut truncated_c, &mut T::new(to_add_bits));
         truncated_c
     }
-
 }
 
 impl<Size, Frac> FheFixedU<Size, Frac>
@@ -177,16 +188,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_floor(&skey);
     ///
     /// // Decrypt:
@@ -211,16 +222,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_floor(&skey);
     ///
     /// // Decrypt:
@@ -245,16 +256,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_round(&skey);
     ///
     /// // Decrypt:
@@ -279,16 +290,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.625);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// // We truncate to prec = 1, meaning that only the most signifigant fractional bit is kept
     /// let ct_res = a.smart_trunc(1, &skey);
     ///
@@ -320,16 +331,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_floor(&skey);
     ///
     /// // Decrypt:
@@ -354,16 +365,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_floor(&skey);
     ///
     /// // Decrypt:
@@ -388,16 +399,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_round(&skey);
     ///
     /// // Decrypt:
@@ -422,16 +433,16 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.625);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// // We truncate to prec = 1, meaning that only the most signifigant fractional bit is kept
     /// let ct_res = a.smart_trunc(1, &skey);
     ///

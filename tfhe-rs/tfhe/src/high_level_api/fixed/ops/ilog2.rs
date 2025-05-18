@@ -1,15 +1,15 @@
-use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Bits, FixedServerKey,
+    traits::{FixedFrac, FixedSize},
+    FixedCiphertextInner,
 };
+use crate::high_level_api::fixed::{Bits, FixedServerKey};
 
 use crate::{FheFixedI, FheFixedU};
 
 use crate::{
-    integer::{IntegerCiphertext, ciphertext::BaseSignedRadixCiphertext},
+    integer::{ciphertext::BaseSignedRadixCiphertext, IntegerCiphertext},
     shortint::Ciphertext,
 };
-
 
 impl FixedServerKey {
     pub(crate) fn smart_ilog2<T: FixedCiphertextInner>(
@@ -35,7 +35,6 @@ impl FixedServerKey {
     }
 }
 
-
 impl<Size, Frac> FheFixedU<Size, Frac>
 where
     Size: FixedSize<Frac>,
@@ -52,32 +51,26 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_ilog2(&skey);
     ///
     /// // Decrypt:
     /// let dec_result: i32 = ckey.key.decrypt_signed_radix(&ct_res);
     /// assert_eq!(dec_result, clear_a.int_log2());
     /// ```
-    pub fn smart_ilog2(
-        &mut self,
-        key: &FixedServerKey,
-    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+    pub fn smart_ilog2(&mut self, key: &FixedServerKey) -> BaseSignedRadixCiphertext<Ciphertext> {
         key.smart_ilog2(&mut self.inner)
     }
-    pub fn unchecked_ilog2(
-        &self,
-        key: &FixedServerKey,
-    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+    pub fn unchecked_ilog2(&self, key: &FixedServerKey) -> BaseSignedRadixCiphertext<Ciphertext> {
         key.unchecked_ilog2(&self.inner)
     }
 }
@@ -98,32 +91,26 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// 
+    ///
     /// let ct_res = a.smart_ilog2(&skey);
     ///
     /// // Decrypt:
     /// let dec_result: i32 = ckey.key.decrypt_signed_radix(&ct_res);
     /// assert_eq!(dec_result, clear_a.int_log2());
     /// ```
-    pub fn smart_ilog2(
-        &mut self,
-        key: &FixedServerKey,
-    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+    pub fn smart_ilog2(&mut self, key: &FixedServerKey) -> BaseSignedRadixCiphertext<Ciphertext> {
         key.smart_ilog2(&mut self.inner)
     }
-    pub fn unchecked_ilog2(
-        &self,
-        key: &FixedServerKey,
-    ) -> BaseSignedRadixCiphertext<Ciphertext> {
+    pub fn unchecked_ilog2(&self, key: &FixedServerKey) -> BaseSignedRadixCiphertext<Ciphertext> {
         key.unchecked_ilog2(&self.inner)
     }
 }

@@ -1,7 +1,8 @@
-use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Bits, FixedServerKey,
+    traits::{FixedFrac, FixedSize},
+    FixedCiphertextInner,
 };
+use crate::high_level_api::fixed::{Bits, FixedServerKey};
 
 use crate::{FheFixedI, FheFixedU};
 
@@ -22,7 +23,8 @@ impl FixedServerKey {
         if self.key.is_add_possible(lhs.bits(), rhs.bits()).is_err() {
             rayon::join(
                 || self.key.full_propagate_parallelized(lhs.bits_mut()),
-                || self.key.full_propagate_parallelized(rhs.bits_mut()));
+                || self.key.full_propagate_parallelized(rhs.bits_mut()),
+            );
         }
         self.unchecked_add_assign(lhs, rhs);
     }
@@ -72,18 +74,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheU8F8;
     /// use fixed::types::U8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: U8F8 = U8F8::from_num(12.8);
     /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// // Compute homomorphically an addition:
     /// let ct_res = a.smart_add(&mut b, &skey);
     ///
@@ -143,18 +145,18 @@ where
     /// use tfhe::{FixedClientKey, FixedServerKey};
     /// use tfhe::FheI8F8;
     /// use fixed::types::I8F8;
-    /// 
+    ///
     /// // Generate the client key and the server key:
     /// let ckey = FixedClientKey::new();
     /// let skey = FixedServerKey::new(&ckey);
-    /// 
+    ///
     /// let clear_a: I8F8 = I8F8::from_num(12.8);
     /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    /// 
+    ///
     /// //Encrypt:
     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    /// 
+    ///
     /// // Compute homomorphically an addition:
     /// let ct_res = a.smart_add(&mut b, &skey);
     ///
