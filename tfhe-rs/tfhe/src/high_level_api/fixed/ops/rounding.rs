@@ -377,7 +377,7 @@ where
     }
 
     /// Homomorphically rounds a ciphertext encrypting a fixed point number to the nearest integer.
-    /// Ties are rounded towards +∞, wrapping on overflow
+    /// Ties are rounded away from 0, wrapping on overflow
     ///
     /// # Warning
     ///
