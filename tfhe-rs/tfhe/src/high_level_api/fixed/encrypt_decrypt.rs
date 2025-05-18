@@ -16,9 +16,9 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
-    /// Creates an FheFixedU whose bitwise representation is equal what is encrypted in `bits`
+    /// Creates an FheFixedU whose bitwise representation is equal to what is encrypted in `bits`
     /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
-    /// If `bits` is too short ot is extended with trivial zeros.
+    /// If `bits` is too short it is extended with trivial zeros.
     ///
     /// # Example
     /// ```rust
@@ -109,7 +109,7 @@ where
     /// Creates an encrypted FheFixedU.
     /// The value encrypted has the same bitwise representation as the given `bits`
     /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
-    /// If `bits` is too short ot is extended with zeros.
+    /// If `bits` is too short it is extended with zeros.
     ///
     /// # Example
     /// ```rust
@@ -195,7 +195,7 @@ where
     /// Creates a trivially encrypted FheFixedU.
     /// The value encrypted has the same bitwise representation as the given `bits`
     /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
-    /// If `bits` is too short ot is extended with zeros.
+    /// If `bits` is too short it is extended with zeros.
     ///
     /// # Warning
     ///
@@ -231,7 +231,7 @@ where
 
     /// Decrypts an FheFixedU to a numeric type.
     ///
-    /// The unsigned type has to be explicit.
+    /// The clear type has to be explicit.
     ///
     /// # Example
     /// ```rust
@@ -263,7 +263,7 @@ where
         T::from(ArbFixedU::from_bits(values))
     }
 
-    /// Decrypts an FheFixedU to it's bitwise representation
+    /// Decrypts an FheFixedU to it's bitwise representation.
     ///
     /// # Example
     /// ```rust
@@ -293,9 +293,9 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
-    /// Creates an FheFixedI whose bitwise representation is equal what is encrypted in `bits`
+    /// Creates an FheFixedI whose bitwise representation is equal to what is encrypted in `bits`
     /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
-    /// If `bits` is too short ot is extended with trivial zeros.
+    /// If `bits` is too short it is extended with trivial zeros.
     ///
     /// # Example
     /// ```rust
@@ -386,7 +386,7 @@ where
     /// Creates an encrypted FheFixedI.
     /// The value encrypted has the same bitwise representation as the given `bits`
     /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
-    /// If `bits` is too short ot is extended with zeros.
+    /// If `bits` is too short it is extended with zeros.
     ///
     /// # Example
     /// ```rust
@@ -472,7 +472,7 @@ where
     /// Creates a trivially encrypted FheFixedI.
     /// The value encrypted has the same bitwise representation as the given `bits`
     /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
-    /// If `bits` is too short ot is extended with zeros.
+    /// If `bits` is too short it is extended with zeros.
     ///
     /// # Warning
     ///
@@ -509,7 +509,7 @@ where
 
     /// Decrypts an FheFixedI to a numeric type.
     ///
-    /// The unsigned type has to be explicit.
+    /// The clear type has to be explicit.
     ///
     /// # Example
     /// ```rust
@@ -541,7 +541,7 @@ where
         T::from(ArbFixedI::from_bits(values))
     }
 
-    /// Decrypts an FheFixedI to it's bitwise representation
+    /// Decrypts an FheFixedI to it's bitwise representation.
     ///
     /// # Example
     /// ```rust
