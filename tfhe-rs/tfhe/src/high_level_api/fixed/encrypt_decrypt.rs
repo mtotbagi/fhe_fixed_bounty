@@ -11,27 +11,34 @@ use crate::high_level_api::fixed::{
 
 use crate::high_level_api::fixed::traits::{FixedFrac, FixedSize};
 
-/*
-impl FixedClientKey {
-    pub(crate) fn encrypt<Size, Frac, U>(&self, clear: U) -> FheFixedU<Size, Frac>
-    where ArbFixedU<Size, Frac>: From<U>,
-    Size: FixedSize<Frac>,
-    Frac: FixedFrac {
-        FheFixedU::<Size, Frac>::encrypt(clear, self)
-    }
-
-    pub(crate) fn encrypt_from_bits<Size, Frac, U>(&self, bits: Vec<u64>) -> FheFixedU<Size, Frac>
-    where Size: FixedSize<Frac>,
-    Frac: FixedFrac {
-        FheFixedU::<Size, Frac>::encrypt_from_bits(bits, self)
-    }
-}*/
-
 impl<Size, Frac> FheFixedU<Size, Frac>
 where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
+    /// Creates an FheFixedU whose bitwise representation is equal what is encrypted in `bits`
+    /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
+    /// If `bits` is too short ot is extended with trivial zeros.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// use crate::tfhe::FixedCiphertext;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let a_bits = ckey.key.encrypt_radix(clear_a.to_bits(), FheU8F8::SIZE as usize / 2);
+    /// let a = FheU8F8::from_bits(a_bits, &skey);
+    ///
+    /// let dec_result: U8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn from_bits(bits: Cipher, key: &FixedServerKey) -> Self {
         let len: usize = Size::USIZE / 2;
         let mut blocks = bits.into_blocks();
@@ -50,6 +57,28 @@ where
         let bits = Cipher::from_blocks(blocks);
         Self::new(bits)
     }
+
+    /// Creates an encrypted FheFixedU.
+    /// `clear` can be any numeric or fixed type, however the encryption may be lossy.
+    /// This operation can only be used if Size <= 128. If Size > 128, use encrypt_from_bits.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    ///
+    /// let dec_result: U8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt<U>(clear: U, key: &FixedClientKey) -> Self
     where
         ArbFixedU<Size, Frac>: From<U>,
@@ -77,11 +106,65 @@ where
         Self::from_bits_inner(Cipher::from_blocks(blocks))
     }
 
+    /// Creates an encrypted FheFixedU.
+    /// The value encrypted has the same bitwise representation as the given `bits`
+    /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
+    /// If `bits` is too short ot is extended with zeros.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let mut a = FheU8F8::encrypt_from_bits(vec![clear_a.to_bits() as u64], &ckey);
+    ///
+    /// let dec_result: U8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt_from_bits(bits: Vec<u64>, key: &FixedClientKey) -> Self {
         let arb = ArbFixedU::<Size, Frac>::from_bits(bits);
         Self::encrypt(arb, key)
     }
 
+    /// Creates a trivially encrypted FheFixedU.
+    /// `clear` can be any numeric or fixed type, however the encryption may be lossy.
+    /// This operation can only be used if Size <= 128. If Size > 128, use encrypt_from_bits.
+    ///
+    /// # Warning
+    ///
+    /// A trivial encryption is not an encryption, the value can be retrieved
+    /// by anyone as if it were a clear value.
+    ///
+    /// Thus no client or public key is needed to create a trivial encryption,
+    /// this can be useful to initialize some values.
+    ///
+    /// As soon as a trivial encryption is used in an operation that involves
+    /// non trivial encryption, the result will be non trivial (secure).
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let mut a = FheU8F8::encrypt_trivial(clear_a, &skey);
+    ///
+    /// let dec_result: U8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt_trivial<U>(clear: U, key: &FixedServerKey) -> Self
     where
         ArbFixedU<Size, Frac>: From<U>,
@@ -109,11 +192,65 @@ where
         Self::new(Cipher::from_blocks(blocks))
     }
 
+    /// Creates a trivially encrypted FheFixedU.
+    /// The value encrypted has the same bitwise representation as the given `bits`
+    /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
+    /// If `bits` is too short ot is extended with zeros.
+    ///
+    /// # Warning
+    ///
+    /// A trivial encryption is not an encryption, the value can be retrieved
+    /// by anyone as if it were a clear value.
+    ///
+    /// Thus no client or public key is needed to create a trivial encryption,
+    /// this can be useful to initialize some values.
+    ///
+    /// As soon as a trivial encryption is used in an operation that involves
+    /// non trivial encryption, the result will be non trivial (secure).
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let mut a = FheU8F8::encrypt_trivial_from_bits(vec![clear_a.to_bits() as u64], &skey);
+    ///
+    /// let dec_result: U8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self {
         let fix: ArbFixedU<Size, Frac> = ArbFixedU::from_bits(bits);
         Self::encrypt_trivial(fix, key)
     }
 
+    /// Decrypts an FheFixedU to a numeric type.
+    ///
+    /// The unsigned type has to be explicit.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    ///
+    /// // U8F8 is explicit
+    /// let dec_result: U8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn decrypt<T: From<ArbFixedU<Size, Frac>>>(&self, key: &FixedClientKey) -> T {
         let blocks = &self.inner.bits().blocks();
         let clear_blocks: Vec<u8> = blocks
@@ -126,6 +263,25 @@ where
         T::from(ArbFixedU::from_bits(values))
     }
 
+    /// Decrypts an FheFixedU to it's bitwise representation
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheU8F8;
+    /// use fixed::types::U8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    /// 
+    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+    ///
+    /// let dec_result = a.decrypt_to_bits(&ckey);
+    /// assert_eq!(dec_result[0], clear_a.to_bits() as u64);
+    /// ```
     pub fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64> {
         let arb_result: ArbFixedU<Size, Frac> = self.decrypt(key);
         arb_result.parts
@@ -137,6 +293,29 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
+    /// Creates an FheFixedI whose bitwise representation is equal what is encrypted in `bits`
+    /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
+    /// If `bits` is too short ot is extended with trivial zeros.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// use tfhe::FixedCiphertext;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let a_bits = ckey.key.encrypt_radix(clear_a.to_bits() as u16, FheI8F8::SIZE as usize / 2);
+    /// let a = FheI8F8::from_bits(a_bits, &skey);
+    ///
+    /// let dec_result: I8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn from_bits(bits: Cipher, key: &FixedServerKey) -> Self {
         let len: usize = Size::USIZE / 2;
         let mut blocks = bits.into_blocks();
@@ -155,6 +334,28 @@ where
         let bits = Cipher::from_blocks(blocks);
         Self::new(bits)
     }
+
+    /// Creates an encrypted FheFixedI.
+    /// `clear` can be any numeric or fixed type, however the encryption may be lossy.
+    /// This operation can only be used if Size <= 128. If Size > 128, use encrypt_from_bits.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    ///
+    /// let dec_result: I8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt<U>(clear: U, key: &FixedClientKey) -> Self
     where
         ArbFixedI<Size, Frac>: From<U>,
@@ -182,11 +383,65 @@ where
         Self::from_bits_inner(Cipher::from_blocks(blocks))
     }
 
+    /// Creates an encrypted FheFixedI.
+    /// The value encrypted has the same bitwise representation as the given `bits`
+    /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
+    /// If `bits` is too short ot is extended with zeros.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let a = FheI8F8::encrypt_from_bits(vec![clear_a.to_bits() as u64], &ckey);
+    ///
+    /// let dec_result: I8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt_from_bits(bits: Vec<u64>, key: &FixedClientKey) -> Self {
         let arb = ArbFixedI::<Size, Frac>::from_bits(bits);
         Self::encrypt(arb, key)
     }
 
+    /// Creates a trivially encrypted FheFixedI.
+    /// `clear` can be any numeric or fixed type, however the encryption may be lossy.
+    /// This operation can only be used if Size <= 128. If Size > 128, use encrypt_from_bits.
+    ///
+    /// # Warning
+    ///
+    /// A trivial encryption is not an encryption, the value can be retrieved
+    /// by anyone as if it were a clear value.
+    ///
+    /// Thus no client or public key is needed to create a trivial encryption,
+    /// this can be useful to initialize some values.
+    ///
+    /// As soon as a trivial encryption is used in an operation that involves
+    /// non trivial encryption, the result will be non trivial (secure).
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let mut a = FheI8F8::encrypt_trivial(clear_a, &skey);
+    ///
+    /// let dec_result: I8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt_trivial<U>(clear: U, key: &FixedServerKey) -> Self
     where
         ArbFixedI<Size, Frac>: From<U>,
@@ -214,11 +469,66 @@ where
         Self::new(Cipher::from_blocks(blocks))
     }
 
+    /// Creates a trivially encrypted FheFixedI.
+    /// The value encrypted has the same bitwise representation as the given `bits`
+    /// If `bits` is too long, it is truncated to the appropriate length thus losing the most significant bits.
+    /// If `bits` is too short ot is extended with zeros.
+    ///
+    /// # Warning
+    ///
+    /// A trivial encryption is not an encryption, the value can be retrieved
+    /// by anyone as if it were a clear value.
+    ///
+    /// Thus no client or public key is needed to create a trivial encryption,
+    /// this can be useful to initialize some values.
+    ///
+    /// As soon as a trivial encryption is used in an operation that involves
+    /// non trivial encryption, the result will be non trivial (secure).
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let mut a = FheI8F8::encrypt_trivial_from_bits(vec![clear_a.to_bits() as u64], &skey);
+    ///
+    /// let dec_result: I8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self {
         let fix: ArbFixedI<Size, Frac> = ArbFixedI::from_bits(bits);
         Self::encrypt_trivial(fix, key)
     }
 
+
+    /// Decrypts an FheFixedI to a numeric type.
+    ///
+    /// The unsigned type has to be explicit.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    ///
+    /// // I8F8 is explicit
+    /// let dec_result: I8F8 = a.decrypt(&ckey);
+    /// assert_eq!(dec_result, clear_a);
+    /// ```
     pub fn decrypt<T: From<ArbFixedI<Size, Frac>>>(&self, key: &FixedClientKey) -> T {
         let blocks = &self.inner.bits().blocks();
         let clear_blocks: Vec<u8> = blocks
@@ -231,6 +541,25 @@ where
         T::from(ArbFixedI::from_bits(values))
     }
 
+    /// Decrypts an FheFixedI to it's bitwise representation
+    ///
+    /// # Example
+    /// ```rust
+    /// use tfhe::{FixedClientKey, FixedServerKey};
+    /// use tfhe::FheI8F8;
+    /// use fixed::types::I8F8;
+    /// 
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    /// 
+    /// let clear_a: I8F8 = I8F8::from_num(-12.8);
+    /// 
+    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+    ///
+    /// let dec_result = a.decrypt_to_bits(&ckey);
+    /// assert_eq!(dec_result[0] as i16, clear_a.to_bits());
+    /// ```
     pub fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64> {
         let arb_result: ArbFixedI<Size, Frac> = self.decrypt(key);
         arb_result.parts
