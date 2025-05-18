@@ -47,42 +47,6 @@ where
     }
 }
 
-// pub(crate) trait ArbFixed {
-//     type Size;
-//     type Frac;
-//     const IS_SIGNED: bool;
-
-//     fn from_bits(bits: Vec<u64>) -> Self;
-// }
-
-// impl<Size, Frac> ArbFixed for ArbFixedU<Size, Frac> where 
-//     Size: FixedSize<Frac>,
-//     Frac: FixedFrac
-//     {
-//         type Size = Size;
-//         type Frac = Frac;
-//         const IS_SIGNED: bool = false;
-    
-//         fn from_bits(bits: Vec<u64>) -> Self {
-//             Self::from_bits(bits)
-//         }
-//     }
-
-// pub trait ToArbFixed {
-//     fn to_arb_fixed<A: ArbFixed>(&self) -> A;
-// }
-
-
-// impl<T> ToArbFixed for T
-// where T: ToFixed {
-//     fn to_arb_fixed<A: ArbFixed>(&self) -> A {
-//         let fixed_bits: u128 = FixedU128::<A::Frac>::from_num(self).to_bits();
-//         // split it into the two sections
-//         let lower_bits = fixed_bits as u64;
-//         let upper_bits = (fixed_bits >> 64) as u64;
-//     }
-// } 
-
 impl<Size, Frac> PartialEq for ArbFixedU<Size, Frac> {
     fn eq(&self, rhs: &ArbFixedU<Size, Frac>) -> bool {
         // As parts.len() should always be Size / 64, this should never fail
