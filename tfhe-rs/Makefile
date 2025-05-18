@@ -1239,14 +1239,14 @@ bench_ks_gpu: install_rs_check_toolchain
 	--bench ks-bench \
 	--features=boolean,shortint,gpu,internal-keycache,nightly-avx512 -p $(TFHE_SPEC)
 
-.PHONY: bench_fixed # Run benchmarks for unsigned integer
+.PHONY: bench_fixed # Run benchmarks for unsigned fixed-point numbers
 bench_fixed: install_rs_check_toolchain
 	RUSTFLAGS="$(RUSTFLAGS)" __TFHE_RS_BENCH_OP_FLAVOR=$(BENCH_OP_FLAVOR) __TFHE_RS_FAST_BENCH=$(FAST_BENCH) __TFHE_RS_BENCH_TYPE=$(BENCH_TYPE) \
 	cargo $(CARGO_RS_CHECK_TOOLCHAIN) bench \
 	--bench fixed-bench \
 	--features=fixed,internal-keycache,nightly-avx512,pbs-stats -p $(TFHE_SPEC) --
 
-.PHONY: bench_fixed_signed # Run benchmarks for unsigned integer
+.PHONY: bench_fixed_signed # Run benchmarks for signed fixed-point numbers
 bench_fixed_signed: install_rs_check_toolchain
 	RUSTFLAGS="$(RUSTFLAGS)" __TFHE_RS_BENCH_OP_FLAVOR=$(BENCH_OP_FLAVOR) __TFHE_RS_FAST_BENCH=$(FAST_BENCH) __TFHE_RS_BENCH_TYPE=$(BENCH_TYPE) \
 	cargo $(CARGO_RS_CHECK_TOOLCHAIN) bench \
