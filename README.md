@@ -118,6 +118,8 @@ cargo +nightly test --release --features=fixed,noise-asserts -- high_level_api::
 All our benchmarks were tested with smart operations, with the inputs dirty.
 Most of our operations have the same runtime as their corresponding integer operation on an integer with the same amount of bits. Below are the timings of those that are different, or have no corresponding integer operation.
 
+Note that both division and multiplication appear significantly slower than their integer counterparts. This is due to the fact that in order to retain precision we must operate on numbers that have an extra `Frac` bits. This means that benchmarks conducted with 0 fractional bits should yield a performance comparable to the integer implementation of these operation.
+
 The benchmarks can be run with:
 ```bash
 make bench_fixed
@@ -125,8 +127,8 @@ make bench_fixed_signed
 ```
 
 
-| Operation \ Size                                     | FheU8F8 | FheU16F16 | FheU32F32 |
-|--------------------------------------------|---------|----------|----------|
+| Operation \ Size  | FheU8F8   | FheU16F16 | FheU32F32 |
+|-------------------|-----------|-----------|-----------|
 | Double	        | 83.1 ms	| 107.5 ms	| 133.7 ms	| 
 | Multiplication	| 275.4 ms	| 407.3 ms	| 781.2 ms	| 
 | Square        	| 331.1 ms	| 471.2 ms	| 722.4 ms	| 
@@ -152,6 +154,8 @@ Thus a mutable reference to `bits` cannot be exposed in the API, hence the wrapp
 ## Special operations
 
 There are a few operations in our submission that are neither strictly better or worse than their alternatives but instead have a different scaling with the number of cores/size of the numbers on which they operate.
+
+This means that for both of the below operations it holds that they are only slower if there are no other operations being executed in parallel. So in a real application our implementation could offer superior performance.
 
 ### Sqr
 
