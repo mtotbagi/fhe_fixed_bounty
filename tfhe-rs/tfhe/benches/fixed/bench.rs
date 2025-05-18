@@ -8,10 +8,10 @@ use criterion::{criterion_group, Criterion};
 use rand::prelude::*;
 use std::env;
 
-use tfhe::{FheFixedU, FixedClientKey, FixedServerKey, FixedSize, FixedFrac};
+use tfhe::{FheFixedU, FixedClientKey, FixedServerKey, FixedSize, FixedFrac, FixedCiphertext};
 use std::sync::LazyLock;
 
-use typenum::{U8, U16, U32, U64};
+use typenum::{U0, U8, U16, U32, U64, U128};
 /// The type used to hold scalar values
 /// It must be as big as the largest bit size tested
 type ScalarType = u128;
@@ -521,6 +521,72 @@ criterion_group!(
     unchecked_ge,
 );
 
+criterion_group!(
+    integer_div_comparison,
+    default_div,
+    improved_div,
+);
+
+fn improved_div(c: &mut Criterion) {
+            bench_server_key_binary_function_dirty_inputs::<_, U16, U0>(
+                c,
+                concat!("fixed::", stringify!(abel_div)),
+                stringify!(adiv),
+                |lhs, rhs, server_key| {
+                    lhs.smart_div(rhs, server_key);
+                }
+            );
+
+            bench_server_key_binary_function_dirty_inputs::<_, U32, U0>(
+                c,
+                concat!("fixed::", stringify!(abel_div)),
+                stringify!(adiv),
+                |lhs, rhs, server_key| {
+                    lhs.smart_div(rhs, server_key);
+                }
+            );
+
+            bench_server_key_binary_function_dirty_inputs::<_, U64, U0>(
+                c,
+                concat!("fixed::", stringify!(abel_div)),
+                stringify!(adiv),
+                |lhs, rhs, server_key| {
+                    lhs.smart_div(rhs, server_key);
+                }
+            );
+}
+
+fn default_div(c: &mut Criterion) {
+            bench_server_key_binary_function_dirty_inputs::<_, U16, U0>(
+                c,
+                concat!("fixed::", stringify!(default_div)),
+                stringify!(ddiv),
+                |lhs, rhs, server_key| {
+                    server_key.key.smart_div_assign_parallelized(&mut lhs.clone().into_bits(), &mut rhs.clone().into_bits());
+                }
+            );
+
+            bench_server_key_binary_function_dirty_inputs::<_, U32, U0>(
+                c,
+                concat!("fixed::", stringify!(default_div)),
+                stringify!(ddiv),
+                |lhs, rhs, server_key| {
+                    server_key.key.smart_div_assign_parallelized(&mut lhs.clone().into_bits(), &mut rhs.clone().into_bits());
+
+                }
+            );
+
+            bench_server_key_binary_function_dirty_inputs::<_, U64, U0>(
+                c,
+                concat!("fixed::", stringify!(default_div)),
+                stringify!(ddiv),
+                |lhs, rhs, server_key| {
+                    server_key.key.smart_div_assign_parallelized(&mut lhs.clone().into_bits(), &mut rhs.clone().into_bits());
+
+                }
+            );
+}
+
 // criterion_group!(
 //     unchecked_ops_round,
 //     unchecked_floor,
@@ -540,6 +606,9 @@ fn go_through_cpu_bench_groups(val: &str) {
             unchecked_ops();
             unchecked_ops_comp();
             // unchecked_ops_round();
+        }
+        "div_comp" => {
+            integer_div_comparison();
         }
         _ => {
             smart_ops();
