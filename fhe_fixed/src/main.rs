@@ -1,5 +1,6 @@
+use fixed::types::extra::LeEqU128;
 use fixed::types::U4F12;
-use tfhe::{FixedClientKey, FixedServerKey};
+use tfhe::{FheFixedU, FixedCiphertext, FixedClientKey, FixedFrac, FixedServerKey, FixedSize};
 use tfhe::FheU4F12;
 
 fn main() {
@@ -18,8 +19,9 @@ fn main() {
     // Calculate the golden ratio:
     let mut sqrt_five = five.smart_sqrt(&skey);
     let mut one_plus_sqrt_five = one.smart_add(&mut sqrt_five, &skey);
+    let mut half = reciprocal(&mut FheU4F12::encrypt_trivial(2, &skey), &skey);
     let mut golden_ratio = one_plus_sqrt_five
-        .smart_div(&mut FheU4F12::encrypt_trivial(2, &skey), &skey);
+        .smart_mul(&mut half, &skey);
 
     
     // Decrypt:
@@ -36,4 +38,20 @@ fn main() {
     let golden_ratio_round = golden_ratio.smart_round(&skey);
     let clear_two: U4F12 = golden_ratio_round.decrypt(&ckey);
     println!("Golden ratio rounded is two: {}", clear_two);
+}
+
+
+// We can write functions that work on "any" FheFixedU type
+fn reciprocal<Size, Frac>(c: &mut FheFixedU<Size, Frac>, key: &FixedServerKey) -> FheFixedU<Size, Frac>
+where Size: FixedSize<Frac> + LeEqU128,
+      Frac: FixedFrac + LeEqU128
+{
+    let trivial_one: FheFixedU::<Size, Frac> = FheFixedU::<Size, Frac>::encrypt_trivial(1u32, key);
+
+    // If the carries are not empty, we propagate
+    if c.bits().block_carries_are_empty() {
+        c.full_propagate_parallelized(key);
+    }
+
+    FheFixedU::<Size, Frac>::unchecked_div(&trivial_one, c, key)
 }
