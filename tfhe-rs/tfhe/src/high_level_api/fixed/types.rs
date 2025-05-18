@@ -1,12 +1,11 @@
 use super::traits::{FixedCiphertext, FixedCiphertextInner, FixedFrac, FixedSize};
 use std::marker::PhantomData;
 use crate::integer::IntegerCiphertext;
-
-pub type Cipher = crate::integer::ciphertext::BaseRadixCiphertext<crate::shortint::Ciphertext>;
+use crate::high_level_api::fixed::Bits;
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedU<Size, Frac> {
-    bits: Cipher,
+    bits: Bits,
     phantom1: PhantomData<Size>,
     phantom2: PhantomData<Frac>,
 }
@@ -18,7 +17,7 @@ pub struct FheFixedU<Size, Frac> {
 
 #[derive(Clone)]
 pub(crate) struct InnerFheFixedI<Size, Frac> {
-    bits: Cipher,
+    bits: Bits,
     phantom1: PhantomData<Size>,
     phantom2: PhantomData<Frac>,
 }
@@ -29,7 +28,7 @@ pub struct FheFixedI<Size, Frac> {
 }
 
 impl<Size, Frac> InnerFheFixedU<Size, Frac> {
-    fn new(bits: Cipher) -> Self {
+    fn new(bits: Bits) -> Self {
         Self {
             bits,
             phantom1: PhantomData,
@@ -47,11 +46,11 @@ where
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
 
-    fn bits(&self) -> &Cipher {
+    fn bits(&self) -> &Bits {
         &self.bits
     }
 
-    fn into_bits(self) -> Cipher {
+    fn into_bits(self) -> Bits {
         self.bits
     }
     fn size(&self) -> u32 {
@@ -62,7 +61,7 @@ where
         Frac::U32
     }
 
-    fn new(inner: Cipher) -> Self {
+    fn new(inner: Bits) -> Self {
         Self::new(inner)
     }
 
@@ -82,13 +81,13 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
-    fn bits_mut(&mut self) -> &mut Cipher {
+    fn bits_mut(&mut self) -> &mut Bits {
         &mut self.bits
     }
 }
 
 impl<Size, Frac> InnerFheFixedI<Size, Frac> {
-    fn new(bits: Cipher) -> Self {
+    fn new(bits: Bits) -> Self {
         Self {
             bits,
             phantom1: PhantomData,
@@ -106,11 +105,11 @@ where
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
 
-    fn bits(&self) -> &Cipher {
+    fn bits(&self) -> &Bits {
         &self.bits
     }
 
-    fn into_bits(self) -> Cipher {
+    fn into_bits(self) -> Bits {
         self.bits
     }
     fn size(&self) -> u32 {
@@ -121,7 +120,7 @@ where
         Frac::U32
     }
 
-    fn new(inner: Cipher) -> Self {
+    fn new(inner: Bits) -> Self {
         Self::new(inner)
     }
 
@@ -141,13 +140,13 @@ where
     Size: FixedSize<Frac>,
     Frac: FixedFrac,
 {
-    fn bits_mut(&mut self) -> &mut Cipher {
+    fn bits_mut(&mut self) -> &mut Bits {
         &mut self.bits
     }
 }
 
 impl<Size, Frac> FheFixedU<Size, Frac> {
-    pub fn new(bits: Cipher) -> FheFixedU<Size, Frac> {
+    pub(crate) fn new(bits: Bits) -> FheFixedU<Size, Frac> {
         FheFixedU {
             inner: InnerFheFixedU::new(bits),
         }
@@ -162,11 +161,11 @@ where
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
 
-    fn bits(&self) -> &Cipher {
+    fn bits(&self) -> &Bits {
         self.inner.bits()
     }
 
-    fn into_bits(self) -> Cipher {
+    fn into_bits(self) -> Bits {
         self.inner.into_bits()
     }
 
@@ -178,7 +177,7 @@ where
         Frac::U32
     }
 
-    fn new(inner: Cipher) -> Self {
+    fn new(inner: Bits) -> Self {
         Self::new(inner)
     }
 
@@ -188,7 +187,7 @@ where
 }
 
 impl<Size, Frac> FheFixedI<Size, Frac> {
-    pub fn new(bits: Cipher) -> Self {
+    pub(crate) fn new(bits: Bits) -> Self {
         Self {
             inner: InnerFheFixedI::new(bits),
         }
@@ -203,11 +202,11 @@ where
     const SIZE: u32 = Size::U32;
     const FRAC: u32 = Frac::U32;
 
-    fn bits(&self) -> &Cipher {
+    fn bits(&self) -> &Bits {
         self.inner.bits()
     }
 
-    fn into_bits(self) -> Cipher {
+    fn into_bits(self) -> Bits {
         self.inner.into_bits()
     }
 
@@ -219,7 +218,7 @@ where
         Frac::U32
     }
 
-    fn new(inner: Cipher) -> Self {
+    fn new(inner: Bits) -> Self {
         Self::new(inner)
     }
 

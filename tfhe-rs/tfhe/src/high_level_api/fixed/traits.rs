@@ -1,6 +1,6 @@
 use typenum::{B0, Cmp, IsGreaterOrEqual, Same, True, U0, U2, UInt, Unsigned};
 
-use super::Cipher;
+use super::Bits;
 
 mod sealed {
     use super::*;
@@ -63,14 +63,14 @@ pub trait FixedCiphertext: Clone + Sync + Send {
     const IS_SIGNED: bool;
     const SIZE: u32;
     const FRAC: u32;
-    fn bits(&self) -> &Cipher;
-    fn into_bits(self) -> Cipher;
+    fn bits(&self) -> &Bits;
+    fn into_bits(self) -> Bits;
     fn size(&self) -> u32;
     fn frac(&self) -> u32;
-    fn new(bits: Cipher) -> Self;
+    fn new(bits: Bits) -> Self;
     fn bits_in_block(&self) -> u32;
 }
 
 pub(crate) trait FixedCiphertextInner: FixedCiphertext {
-    fn bits_mut(&mut self) -> &mut Cipher;
+    fn bits_mut(&mut self) -> &mut Bits;
 }

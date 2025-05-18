@@ -1,6 +1,6 @@
 use crate::{high_level_api::fixed::{traits::{FixedFrac, FixedSize}, FixedCiphertextInner}, integer::{prelude::ServerKeyDefaultCMux, BooleanBlock}};
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey,
+    Bits, FixedServerKey,
 };
 
 use crate::{FheFixedI, FheFixedU};
@@ -26,7 +26,7 @@ impl FixedServerKey {
         
         let tmp = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1u64);
         let mut res = self.smart_floor(&mut T::new(tmp));
-        let mut one: Cipher = self.key.create_trivial_radix(1, T::SIZE as usize/2);
+        let mut one: Bits = self.key.create_trivial_radix(1, T::SIZE as usize/2);
         self.key.scalar_left_shift_assign_parallelized(&mut one, c.frac());
 
         self.key
@@ -110,7 +110,7 @@ impl FixedServerKey {
             let ct_res = self.key.key.apply_lookup_table(&block[0], &acc);
             blocks.insert(0, ct_res);
         }
-        let mut cipher = Cipher::from_blocks(blocks);
+        let mut cipher = Bits::from_blocks(blocks);
         self.key
             .extend_radix_with_trivial_zero_blocks_lsb_assign(&mut cipher, bits_to_lose >> 1);
         T::new(cipher)
@@ -143,7 +143,7 @@ impl FixedServerKey {
             let to_add_block = self
                 .key.key
                 .apply_lookup_table(half_block, &to_add_lut);
-            let mut to_add_bits = Cipher::from_blocks(vec![to_add_block]);
+            let mut to_add_bits = Bits::from_blocks(vec![to_add_block]);
             self.key.extend_radix_with_trivial_zero_blocks_lsb_assign(&mut to_add_bits, (T::FRAC/2) as usize);
             self.key.extend_radix_with_trivial_zero_blocks_msb_assign
                 (&mut to_add_bits, num_blocks - 1 - (T::FRAC/2) as usize);

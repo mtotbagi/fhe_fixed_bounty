@@ -1,6 +1,6 @@
 use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey, propagate_if_needed_parallelized
+    Bits, FixedServerKey, propagate_if_needed_parallelized
 };
 
 use crate::{FheFixedI, FheFixedU};
@@ -40,7 +40,7 @@ impl FixedServerKey {
             let mut blocks = lhs_bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
     
-            T::new(Cipher::from_blocks(blocks))
+            T::new(Bits::from_blocks(blocks))
         } else {
             let mut lhs_bits = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             self.key.extend_radix_with_sign_msb_assign(&mut lhs_bits, blocks_with_frac as usize);
@@ -58,7 +58,7 @@ impl FixedServerKey {
 
             let mut blocks = lhs_bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
-            let signed_res = Cipher::from_blocks(blocks);
+            let signed_res = Bits::from_blocks(blocks);
             T::new(signed_res)
         }
     }
@@ -98,7 +98,7 @@ impl FixedServerKey {
             let mut blocks = bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
     
-            T::new(Cipher::from_blocks(blocks))
+            T::new(Bits::from_blocks(blocks))
         } else {
 
             let mut bits = SignedRadixCiphertext::from_blocks(c.bits().clone().into_blocks());
@@ -113,7 +113,7 @@ impl FixedServerKey {
 
             let mut blocks = bits.into_blocks();
             blocks.drain(0..blocks_with_frac as usize);
-            let signed_res = Cipher::from_blocks(blocks);
+            let signed_res = Bits::from_blocks(blocks);
             T::new(signed_res)}
     }
 

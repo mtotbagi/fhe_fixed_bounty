@@ -1,6 +1,6 @@
 use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey,
+    Bits, FixedServerKey,
 };
 
 use crate::{FheFixedI, FheFixedU};
@@ -39,7 +39,7 @@ impl FixedServerKey {
     }
 
     pub(crate) fn unchecked_dbl<T: FixedCiphertextInner>(&self, c: &T) -> T {
-        let result_bits: Cipher = self.key.unchecked_add_parallelized(c.bits(), c.bits());
+        let result_bits: Bits = self.key.unchecked_add_parallelized(c.bits(), c.bits());
         T::new(result_bits)
     }
 

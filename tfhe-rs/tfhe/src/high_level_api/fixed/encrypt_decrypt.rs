@@ -6,7 +6,7 @@ use super::{FheFixedI, FixedClientKey};
 use crate::FixedCiphertext;
 use crate::FheFixedU;
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey
+    Bits, FixedServerKey
 };
 
 use crate::high_level_api::fixed::traits::{FixedFrac, FixedSize};
@@ -39,22 +39,22 @@ where
     /// let dec_result: U8F8 = a.decrypt(&ckey);
     /// assert_eq!(dec_result, clear_a);
     /// ```
-    pub fn from_bits(bits: Cipher, key: &FixedServerKey) -> Self {
+    pub fn from_bits(bits: Bits, key: &FixedServerKey) -> Self {
         let len: usize = Size::USIZE / 2;
         let mut blocks = bits.into_blocks();
         blocks.truncate(len);
         let cur_len = blocks.len();
-        let mut bits = Cipher::from_blocks(blocks);
+        let mut bits = Bits::from_blocks(blocks);
         key.key
             .extend_radix_with_trivial_zero_blocks_msb_assign(&mut bits, len - cur_len);
         Self::new(bits)
     }
     // This may result in too short inner radix ciphertext!!!
-    pub(crate) fn from_bits_inner(bits: Cipher) -> Self {
+    pub(crate) fn from_bits_inner(bits: Bits) -> Self {
         let len: usize = Size::USIZE / 2;
         let mut blocks = bits.into_blocks();
         blocks.truncate(len);
-        let bits = Cipher::from_blocks(blocks);
+        let bits = Bits::from_blocks(blocks);
         Self::new(bits)
     }
 
@@ -103,7 +103,7 @@ where
             .map(|x| key.key.encrypt_one_block(x as u64))
             .collect::<Vec<Ciphertext>>();
 
-        Self::from_bits_inner(Cipher::from_blocks(blocks))
+        Self::from_bits_inner(Bits::from_blocks(blocks))
     }
 
     /// Creates an encrypted FheFixedU.
@@ -189,7 +189,7 @@ where
             .map(|x| key.key.key.create_trivial(x as u64))
             .collect::<Vec<Ciphertext>>();
 
-        Self::new(Cipher::from_blocks(blocks))
+        Self::new(Bits::from_blocks(blocks))
     }
 
     /// Creates a trivially encrypted FheFixedU.
@@ -316,22 +316,22 @@ where
     /// let dec_result: I8F8 = a.decrypt(&ckey);
     /// assert_eq!(dec_result, clear_a);
     /// ```
-    pub fn from_bits(bits: Cipher, key: &FixedServerKey) -> Self {
+    pub fn from_bits(bits: Bits, key: &FixedServerKey) -> Self {
         let len: usize = Size::USIZE / 2;
         let mut blocks = bits.into_blocks();
         blocks.truncate(len);
         let cur_len = blocks.len();
-        let mut bits = Cipher::from_blocks(blocks);
+        let mut bits = Bits::from_blocks(blocks);
         key.key
             .extend_radix_with_trivial_zero_blocks_msb_assign(&mut bits, len - cur_len);
         Self::new(bits)
     }
     // This may result in too short inner radix ciphertext!!!
-    pub(crate) fn from_bits_inner(bits: Cipher) -> Self {
+    pub(crate) fn from_bits_inner(bits: Bits) -> Self {
         let len: usize = Size::USIZE / 2;
         let mut blocks = bits.into_blocks();
         blocks.truncate(len);
-        let bits = Cipher::from_blocks(blocks);
+        let bits = Bits::from_blocks(blocks);
         Self::new(bits)
     }
 
@@ -380,7 +380,7 @@ where
             .map(|x| key.key.encrypt_one_block(x as u64))
             .collect::<Vec<Ciphertext>>();
 
-        Self::from_bits_inner(Cipher::from_blocks(blocks))
+        Self::from_bits_inner(Bits::from_blocks(blocks))
     }
 
     /// Creates an encrypted FheFixedI.
@@ -466,7 +466,7 @@ where
             .map(|x| key.key.key.create_trivial(x as u64))
             .collect::<Vec<Ciphertext>>();
 
-        Self::new(Cipher::from_blocks(blocks))
+        Self::new(Bits::from_blocks(blocks))
     }
 
     /// Creates a trivially encrypted FheFixedI.

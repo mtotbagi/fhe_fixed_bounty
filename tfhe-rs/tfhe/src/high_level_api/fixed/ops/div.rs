@@ -1,7 +1,7 @@
 use crate::high_level_api::fixed::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized};
 use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey,
+    Bits, FixedServerKey,
 };
 
 use crate::{FheFixedI, FheFixedU};
@@ -103,10 +103,10 @@ impl FixedServerKey {
         if lhs.frac() % 2 == 1 {self.key.unchecked_scalar_right_shift_assign(&mut wide_remainder, 1);}
         
         // the result is only needed as wide for ease of indexing later, but this results in practically no performance overhead
-        let mut wide_result: Cipher = self.key.create_trivial_zero_radix(wide_block_size);
+        let mut wide_result: Bits = self.key.create_trivial_zero_radix(wide_block_size);
 
         // the single guess bit, starting at its largest value
-        let mut guess_radix: Cipher = self.key.create_trivial_radix(1, wide_block_size);
+        let mut guess_radix: Bits = self.key.create_trivial_radix(1, wide_block_size);
         self.key.unchecked_scalar_left_shift_assign_parallelized(&mut guess_radix, largest_used_bit_idx);
         
         // two lookup tables used to zero out half the calculations depending on `if R > B*D` (represented by an overflow)
@@ -140,7 +140,7 @@ impl FixedServerKey {
                         let mod_of_shift = (idx % message_mod + message_mod) % message_mod;
                         let shift_amount_signed = idx - mod_of_shift;
                         let wider_shifted = unchecked_signed_scalar_left_shift_parallelized(&self.key, &wide_shifted_rhs_vec[mod_of_shift as usize], shift_amount_signed);
-                        Cipher::from_blocks(wider_shifted.blocks()[..wider_shifted.blocks().len() - 1].to_vec())
+                        Bits::from_blocks(wider_shifted.blocks()[..wider_shifted.blocks().len() - 1].to_vec())
                     }
                 ).collect::<Vec<_>>()
             }, || {
@@ -161,11 +161,11 @@ impl FixedServerKey {
             let ls_used_block_idx = guess_bit_idx / log_modulus_usize;
 
             // in each loop we only operate on the sub-parts of the ciphers that could be non-zero, so we drop unneeded parts
-            let mut narrow_remainder_old = Cipher::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
+            let mut narrow_remainder_old = Bits::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
             let mut guess_block = guess_radix.blocks()[ls_used_block_idx].clone();    // they are created as entire ciphers, since there is no convenient block-rotate
             
             // this is B*D, since we already computed these, we can just get the correct one, and trim it to the correct length
-            let narrow_rhs_shifted = Cipher::from(shifted_wide_rhs_vec[guess_bit_idx].blocks()[ls_used_block_idx..].to_vec());
+            let narrow_rhs_shifted = Bits::from(shifted_wide_rhs_vec[guess_bit_idx].blocks()[ls_used_block_idx..].to_vec());
 
             // calculate R - B*D and R >= B*D also check if the current bit is guaranteed to be a leading zero      (the new value of R, and the guard of the if-stmt)
             let ((mut narrow_remainder_new, sub_overflowed), is_leading_zero) = 
@@ -233,8 +233,8 @@ impl FixedServerKey {
             self.key.unchecked_scalar_right_shift_assign_parallelized(&mut guess_radix, 1);
         }
         // discard unused part of the result, and return the rest
-        let mut narrow_result = Cipher::from_blocks(wide_result.into_blocks()[..narrow_block_size].to_vec());
-        let mut narrow_remainder = Cipher::from_blocks(wide_remainder.into_blocks()[..narrow_block_size].to_vec());
+        let mut narrow_result = Bits::from_blocks(wide_result.into_blocks()[..narrow_block_size].to_vec());
+        let mut narrow_remainder = Bits::from_blocks(wide_remainder.into_blocks()[..narrow_block_size].to_vec());
         rayon::join(
             || {
                 narrow_result.blocks_mut().par_iter_mut().for_each(|block| {

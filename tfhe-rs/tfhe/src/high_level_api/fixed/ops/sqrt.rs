@@ -1,7 +1,7 @@
 use crate::high_level_api::fixed::{unchecked_signed_scalar_left_shift_parallelized, propagate_if_needed_parallelized};
 use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey,
+    Bits, FixedServerKey,
 };
 
 use crate::{FheFixedI, FheFixedU};
@@ -59,10 +59,10 @@ impl FixedServerKey {
         let mut wide_remainder = self.key.extend_radix_with_trivial_zero_blocks_lsb(&c.bits(), blocks_with_frac);
 
         // result is only needed as wide for ease of indexing later
-        let mut wide_result: Cipher = self.key.create_trivial_zero_radix(wide_block_size); 
+        let mut wide_result: Bits = self.key.create_trivial_zero_radix(wide_block_size); 
 
         // the single guess bit, starting at its largest value
-        let mut guess_radix: Cipher = self.key.create_trivial_radix(1, wide_block_size);
+        let mut guess_radix: Bits = self.key.create_trivial_radix(1, wide_block_size);
         self.key.unchecked_scalar_left_shift_assign_parallelized(&mut guess_radix, largest_used_bit_idx);
         
         // the square of the guess bit is usually shifted left, unless there are no integer bits at all, in which case guess is 1/2, so square is 1/4
@@ -100,8 +100,8 @@ impl FixedServerKey {
             let sqr_block_idx_narrow = sqr_block_idx_wide - ls_used_block_idx;
 
             // in each loop we only operate on the sub-parts of the ciphers that could be non-zero, so we drop unneeded parts
-            let mut narrow_remainder_old = Cipher::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
-            let mut narrow_result_shifted = Cipher::from(wide_result.blocks()[ls_used_block_idx..].to_vec());
+            let mut narrow_remainder_old = Bits::from(wide_remainder.blocks()[ls_used_block_idx..].to_vec());
+            let mut narrow_result_shifted = Bits::from(wide_result.blocks()[ls_used_block_idx..].to_vec());
             let mut sqr_block = guess_square.blocks()[sqr_block_idx_wide].clone();  // it is sufficient to store the guess and its square in a single block
             let mut guess_block = guess_radix.blocks()[guess_block_idx].clone();    // they are created as entire ciphers, since there is no convenient block-rotate
             
@@ -171,7 +171,7 @@ impl FixedServerKey {
             sqr_bit_idx -= 2;
         }
         // discard unused part of the result, and return the rest
-        *c.bits_mut() = Cipher::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
+        *c.bits_mut() = Bits::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
     }
 }
 

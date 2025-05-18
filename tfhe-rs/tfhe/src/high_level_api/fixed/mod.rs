@@ -22,7 +22,7 @@ pub(crate) use traits::FixedCiphertextInner;
 
 pub(crate) const PARAM: ClassicPBSParameters =
     crate::shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128;
-pub(crate) type Cipher = crate::integer::ciphertext::BaseRadixCiphertext<crate::shortint::Ciphertext>;
+pub(crate) type Bits = crate::integer::ciphertext::BaseRadixCiphertext<crate::shortint::Ciphertext>;
 
 pub struct FixedServerKey {
     pub key: ServerKey,

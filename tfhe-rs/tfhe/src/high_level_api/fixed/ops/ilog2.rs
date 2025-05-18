@@ -1,6 +1,6 @@
 use crate::high_level_api::fixed::{FixedCiphertextInner, traits::{FixedFrac, FixedSize}};
 use crate::high_level_api::fixed::{
-    Cipher, FixedServerKey,
+    Bits, FixedServerKey,
 };
 
 use crate::{FheFixedI, FheFixedU};
@@ -26,7 +26,7 @@ impl FixedServerKey {
         &self,
         c: &T,
     ) -> BaseSignedRadixCiphertext<Ciphertext> {
-        let tmp: Cipher = self.key.unchecked_ilog2_parallelized(c.bits());
+        let tmp: Bits = self.key.unchecked_ilog2_parallelized(c.bits());
         let len = tmp.blocks().len();
         let mut bits = self.key.cast_to_signed(tmp, len);
         self.key
