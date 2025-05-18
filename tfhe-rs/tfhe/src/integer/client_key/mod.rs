@@ -43,7 +43,7 @@ use tfhe_versionable::Versionize;
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Versionize)]
 #[versionize(ClientKeyVersions)]
 pub struct ClientKey {
-    pub key: ShortintClientKey,
+    pub(crate) key: ShortintClientKey,
 }
 
 impl From<ShortintClientKey> for ClientKey {

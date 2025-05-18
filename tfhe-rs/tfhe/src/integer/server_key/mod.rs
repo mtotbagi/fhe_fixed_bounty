@@ -32,7 +32,7 @@ use tfhe_versionable::Versionize;
 #[derive(Serialize, Deserialize, Clone, Versionize)]
 #[versionize(ServerKeyVersions)]
 pub struct ServerKey {
-    pub key: crate::shortint::ServerKey,
+    pub(crate) key: crate::shortint::ServerKey,
 }
 
 impl From<ServerKey> for crate::shortint::ServerKey {
