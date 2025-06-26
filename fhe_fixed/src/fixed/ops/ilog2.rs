@@ -1,6 +1,5 @@
 use crate::fixed::{
-    traits::{FixedFrac, FixedSize},
-    FixedCiphertextInner,
+    traits::{FixedFrac, FixedSize}, BitsMutToken, FixedCiphertext
 };
 use crate::fixed::{Bits, FixedServerKey};
 
@@ -12,17 +11,17 @@ use tfhe::{
 };
 
 impl FixedServerKey {
-    pub(crate) fn smart_ilog2<T: FixedCiphertextInner>(
+    pub(crate) fn smart_ilog2<T: FixedCiphertext>(
         &self,
         c: &mut T,
     ) -> BaseSignedRadixCiphertext<Ciphertext> {
         if !c.bits().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.bits_mut());
+            self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
         self.unchecked_ilog2(c)
     }
 
-    pub(crate) fn unchecked_ilog2<T: FixedCiphertextInner>(
+    pub(crate) fn unchecked_ilog2<T: FixedCiphertext>(
         &self,
         c: &T,
     ) -> BaseSignedRadixCiphertext<Ciphertext> {

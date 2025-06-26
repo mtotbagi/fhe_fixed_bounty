@@ -1,7 +1,7 @@
-use crate::fixed::{propagate_if_needed_parallelized, Bits, FixedServerKey};
+use crate::fixed::{propagate_if_needed_parallelized, Bits, BitsMutToken, FixedServerKey};
 use crate::fixed::{
     traits::{FixedFrac, FixedSize},
-    FixedCiphertextInner,
+    FixedCiphertext,
 };
 
 use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey, SignedRadixCiphertext};
@@ -9,13 +9,13 @@ use crate::{FheFixedI, FheFixedU};
 use rayon::prelude::*;
 
 impl FixedServerKey {
-    pub(crate) fn smart_mul<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    pub(crate) fn smart_mul<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
 
         self.unchecked_mul(lhs, rhs)
     }
 
-    pub(crate) fn unchecked_mul<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> T {
+    pub(crate) fn unchecked_mul<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let blocks_with_frac = (lhs.frac() + 1) >> 1;
         if !T::IS_SIGNED {
             let mut lhs_bits = lhs.bits().clone();
@@ -66,23 +66,23 @@ impl FixedServerKey {
         }
     }
 
-    pub(crate) fn smart_mul_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) {
+    pub(crate) fn smart_mul_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) {
         *lhs = self.smart_mul(lhs, rhs);
     }
 
-    pub(crate) fn unchecked_mul_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &T) {
+    pub(crate) fn unchecked_mul_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &T) {
         *lhs = self.unchecked_mul(lhs, rhs)
     }
 
-    pub(crate) fn smart_sqr<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
+    pub(crate) fn smart_sqr<T: FixedCiphertext>(&self, c: &mut T) -> T {
         if !c.bits().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.bits_mut());
+            self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
 
         self.unchecked_sqr(c)
     }
 
-    pub(crate) fn unchecked_sqr<T: FixedCiphertextInner>(&self, c: &T) -> T {
+    pub(crate) fn unchecked_sqr<T: FixedCiphertext>(&self, c: &T) -> T {
         let blocks_with_frac = (c.frac() + 1) >> 1;
         if !T::IS_SIGNED {
             let mut bits = c.bits().clone();
@@ -123,11 +123,11 @@ impl FixedServerKey {
         }
     }
 
-    pub(crate) fn smart_sqr_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
+    pub(crate) fn smart_sqr_assign<T: FixedCiphertext>(&self, c: &mut T) {
         *c = self.smart_sqr(c);
     }
 
-    pub(crate) fn unchecked_sqr_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
+    pub(crate) fn unchecked_sqr_assign<T: FixedCiphertext>(&self, c: &mut T) {
         *c = self.unchecked_sqr(c);
     }
 }

@@ -1,9 +1,9 @@
 use crate::fixed::{
-    propagate_if_needed_parallelized, unchecked_signed_scalar_left_shift_parallelized,
+    propagate_if_needed_parallelized, unchecked_signed_scalar_left_shift_parallelized, BitsMutToken,
 };
 use crate::fixed::{
     traits::{FixedFrac, FixedSize},
-    FixedCiphertextInner,
+    FixedCiphertext,
 };
 use crate::fixed::{Bits, FixedServerKey};
 
@@ -17,24 +17,24 @@ use rayon::iter::{
 };
 
 impl FixedServerKey {
-    pub(crate) fn smart_sqrt<T: FixedCiphertextInner>(&self, lhs: &mut T) -> T {
+    pub(crate) fn smart_sqrt<T: FixedCiphertext>(&self, lhs: &mut T) -> T {
         let mut result_value = lhs.clone();
         self.smart_sqrt_assign(&mut result_value);
         result_value
     }
 
-    pub(crate) fn unchecked_sqrt<T: FixedCiphertextInner>(&self, lhs: &T) -> T {
+    pub(crate) fn unchecked_sqrt<T: FixedCiphertext>(&self, lhs: &T) -> T {
         let mut result_value: T = lhs.clone();
         self.unchecked_sqrt_assign(&mut result_value);
         result_value
     }
 
-    pub(crate) fn smart_sqrt_assign<T: FixedCiphertextInner>(&self, lhs: &mut T) {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut()], &self.key);
+    pub(crate) fn smart_sqrt_assign<T: FixedCiphertext>(&self, lhs: &mut T) {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_sqrt_assign(lhs);
     }
 
-    pub(crate) fn unchecked_sqrt_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
+    pub(crate) fn unchecked_sqrt_assign<T: FixedCiphertext>(&self, c: &mut T) {
         // Pseudo code of the algorithm used:
         // sqrt(V)
         // V = V.clone()                    -- we use this as a remainder, but don't change the input
@@ -226,7 +226,7 @@ impl FixedServerKey {
             sqr_bit_idx -= 2;
         }
         // discard unused part of the result, and return the rest
-        *c.bits_mut() = Bits::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
+        *c.bits_mut(BitsMutToken) = Bits::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
     }
 }
 

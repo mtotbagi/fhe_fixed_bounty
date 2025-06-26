@@ -15,7 +15,7 @@ mod types;
 
 mod ops;
 
-pub(crate) use traits::FixedCiphertextInner;
+pub(crate) use traits::private::BitsMutToken;
 pub use traits::{FixedCiphertext, FixedFrac, FixedSize};
 pub use types::{FheFixedI, FheFixedU};
 
@@ -65,7 +65,7 @@ macro_rules! fhe_fixed_propagate {
             Frac: traits::FixedFrac,
         {
             pub fn full_propagate_parallelized(&mut self, key: &FixedServerKey) {
-                key.key.full_propagate_parallelized(self.inner.bits_mut());
+                key.key.full_propagate_parallelized(self.inner.bits_mut(BitsMutToken));
             }
         }
     };

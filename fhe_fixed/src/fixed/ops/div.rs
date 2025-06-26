@@ -1,9 +1,9 @@
 use crate::fixed::{
-    propagate_if_needed_parallelized, unchecked_signed_scalar_left_shift_parallelized,
+    propagate_if_needed_parallelized, unchecked_signed_scalar_left_shift_parallelized, BitsMutToken,
 };
 use crate::fixed::{
     traits::{FixedFrac, FixedSize},
-    FixedCiphertextInner,
+    FixedCiphertext,
 };
 use crate::fixed::{Bits, FixedServerKey};
 
@@ -18,24 +18,24 @@ use rayon::iter::{
 };
 
 impl FixedServerKey {
-    pub(crate) fn smart_div<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
+    pub(crate) fn smart_div<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
         let mut result_value = lhs.clone();
         self.smart_div_assign(&mut result_value, rhs);
         result_value
     }
 
-    pub(crate) fn unchecked_div<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> T {
+    pub(crate) fn unchecked_div<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let mut result_value: T = lhs.clone();
         self.unchecked_div_assign(&mut result_value, rhs);
         result_value
     }
 
-    pub(crate) fn smart_div_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    pub(crate) fn smart_div_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_div_assign(lhs, rhs);
     }
 
-    pub(crate) fn unchecked_div_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &T) {
+    pub(crate) fn unchecked_div_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &T) {
         if T::IS_SIGNED {
             //cast both to unsigned with absolute value
             let mut rhs_abs = rhs.clone();
@@ -78,7 +78,7 @@ impl FixedServerKey {
             // fix sign of result
             let negated_lhs = self.key.neg_parallelized(lhs_abs.bits());
 
-            *lhs.bits_mut() = self.key.unchecked_if_then_else_parallelized(
+            *lhs.bits_mut(BitsMutToken) = self.key.unchecked_if_then_else_parallelized(
                 &sign_bits_are_different,
                 &negated_lhs,
                 &lhs_abs.bits(),
@@ -89,7 +89,7 @@ impl FixedServerKey {
     }
 
     /// Does wrapping division, assigns the quotient and returns the remainder.
-    fn unchecked_unsigned_div_assign_rem<T: FixedCiphertextInner>(
+    fn unchecked_unsigned_div_assign_rem<T: FixedCiphertext>(
         &self,
         lhs: &mut T,
         rhs: &T,
@@ -328,7 +328,7 @@ impl FixedServerKey {
                     });
             },
         );
-        *lhs.bits_mut() = narrow_result;
+        *lhs.bits_mut(BitsMutToken) = narrow_result;
         T::new(narrow_remainder)
     }
 }

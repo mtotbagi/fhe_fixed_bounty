@@ -1,5 +1,5 @@
-use super::traits::{FixedCiphertext, FixedCiphertextInner, FixedFrac, FixedSize};
-use crate::fixed::Bits;
+use super::traits::{FixedCiphertext, FixedFrac, FixedSize};
+use crate::fixed::{traits::private::BitsMutToken, Bits};
 use tfhe::integer::IntegerCiphertext;
 use std::marker::PhantomData;
 
@@ -74,14 +74,8 @@ where
             log2 + 1
         }
     }
-}
 
-impl<Size, Frac> FixedCiphertextInner for InnerFheFixedU<Size, Frac>
-where
-    Size: FixedSize<Frac>,
-    Frac: FixedFrac,
-{
-    fn bits_mut(&mut self) -> &mut Bits {
+    fn bits_mut(&mut self, _: BitsMutToken) -> &mut Bits {
         &mut self.bits
     }
 }
@@ -133,14 +127,8 @@ where
             log2 + 1
         }
     }
-}
 
-impl<Size, Frac> FixedCiphertextInner for InnerFheFixedI<Size, Frac>
-where
-    Size: FixedSize<Frac>,
-    Frac: FixedFrac,
-{
-    fn bits_mut(&mut self) -> &mut Bits {
+    fn bits_mut(&mut self, _: BitsMutToken) -> &mut Bits {
         &mut self.bits
     }
 }
@@ -184,6 +172,10 @@ where
     fn bits_in_block(&self) -> u32 {
         self.inner.bits_in_block()
     }
+
+    fn bits_mut(&mut self, _: BitsMutToken) -> &mut Bits {
+        self.inner.bits_mut(BitsMutToken)
+    }
 }
 
 impl<Size, Frac> FheFixedI<Size, Frac> {
@@ -224,5 +216,9 @@ where
 
     fn bits_in_block(&self) -> u32 {
         self.inner.bits_in_block()
+    }
+
+    fn bits_mut(&mut self, _: BitsMutToken) -> &mut Bits {
+        self.inner.bits_mut(BitsMutToken)
     }
 }

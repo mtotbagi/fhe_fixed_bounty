@@ -1,59 +1,58 @@
 use crate::fixed::{
-    traits::{FixedFrac, FixedSize},
-    FixedCiphertextInner,
+    traits::{FixedFrac, FixedSize}, BitsMutToken, FixedCiphertext
 };
 use crate::fixed::{Bits, FixedServerKey};
 
 use crate::{FheFixedI, FheFixedU};
 
 impl FixedServerKey {
-    pub(crate) fn smart_add<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> T {
+    pub(crate) fn smart_add<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
         let mut result_value = lhs.clone();
         self.smart_add_assign(&mut result_value, rhs);
         result_value
     }
 
-    pub(crate) fn unchecked_add<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> T {
+    pub(crate) fn unchecked_add<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let mut result_value: T = lhs.clone();
         self.unchecked_add_assign(&mut result_value, rhs);
         result_value
     }
 
-    pub(crate) fn smart_add_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) {
+    pub(crate) fn smart_add_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) {
         if self.key.is_add_possible(lhs.bits(), rhs.bits()).is_err() {
             rayon::join(
-                || self.key.full_propagate_parallelized(lhs.bits_mut()),
-                || self.key.full_propagate_parallelized(rhs.bits_mut()),
+                || self.key.full_propagate_parallelized(lhs.bits_mut(BitsMutToken)),
+                || self.key.full_propagate_parallelized(rhs.bits_mut(BitsMutToken)),
             );
         }
         self.unchecked_add_assign(lhs, rhs);
     }
 
-    pub(crate) fn unchecked_add_assign<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &T) {
+    pub(crate) fn unchecked_add_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &T) {
         self.key
-            .unchecked_add_assign_parallelized(lhs.bits_mut(), rhs.bits());
+            .unchecked_add_assign_parallelized(lhs.bits_mut(BitsMutToken), rhs.bits());
     }
 
-    pub(crate) fn smart_dbl<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
+    pub(crate) fn smart_dbl<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let mut result_value = c.clone();
         self.smart_dbl_assign(&mut result_value);
         result_value
     }
 
-    pub(crate) fn unchecked_dbl<T: FixedCiphertextInner>(&self, c: &T) -> T {
+    pub(crate) fn unchecked_dbl<T: FixedCiphertext>(&self, c: &T) -> T {
         let result_bits: Bits = self.key.unchecked_add_parallelized(c.bits(), c.bits());
         T::new(result_bits)
     }
 
-    pub(crate) fn smart_dbl_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
+    pub(crate) fn smart_dbl_assign<T: FixedCiphertext>(&self, c: &mut T) {
         if self.key.is_add_possible(c.bits(), c.bits()).is_err() {
-            self.key.full_propagate_parallelized(c.bits_mut());
+            self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
         self.unchecked_dbl_assign(c)
     }
 
-    pub(crate) fn unchecked_dbl_assign<T: FixedCiphertextInner>(&self, c: &mut T) {
-        *c.bits_mut() = self.key.unchecked_add_parallelized(c.bits(), c.bits());
+    pub(crate) fn unchecked_dbl_assign<T: FixedCiphertext>(&self, c: &mut T) {
+        *c.bits_mut(BitsMutToken) = self.key.unchecked_add_parallelized(c.bits(), c.bits());
     }
 }
 

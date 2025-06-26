@@ -1,5 +1,7 @@
 use typenum::{Cmp, IsGreaterOrEqual, Same, True, UInt, Unsigned, B0, U0, U2};
 
+use crate::fixed::traits::private::BitsMutToken;
+
 use super::Bits;
 
 mod sealed {
@@ -59,6 +61,10 @@ where
 {
 }
 
+pub(crate) mod private {
+    pub struct BitsMutToken;
+}
+
 pub trait FixedCiphertext: Clone + Sync + Send {
     const IS_SIGNED: bool;
     const SIZE: u32;
@@ -69,8 +75,5 @@ pub trait FixedCiphertext: Clone + Sync + Send {
     fn frac(&self) -> u32;
     fn new(bits: Bits) -> Self;
     fn bits_in_block(&self) -> u32;
-}
-
-pub(crate) trait FixedCiphertextInner: FixedCiphertext {
-    fn bits_mut(&mut self) -> &mut Bits;
+    fn bits_mut(&mut self, _: BitsMutToken) -> &mut Bits;
 }

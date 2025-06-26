@@ -3,8 +3,7 @@ use tfhe::integer::{
 };
 
 use crate::fixed::{
-    traits::{FixedFrac, FixedSize},
-    FheFixedU, FixedCiphertextInner,
+    traits::{FixedFrac, FixedSize}, BitsMutToken, FheFixedU, FixedCiphertext
 };
 use crate::FixedServerKey;
 
@@ -12,40 +11,40 @@ use crate::fixed::propagate_if_needed_parallelized;
 use crate::FheFixedI;
 
 impl FixedServerKey {
-    fn smart_eq<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    fn smart_eq<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_eq(lhs, rhs)
     }
-    fn smart_ne<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    fn smart_ne<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_ne(lhs, rhs)
     }
-    fn smart_lt<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    fn smart_lt<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_lt(lhs, rhs)
     }
-    fn smart_le<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    fn smart_le<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_le(lhs, rhs)
     }
-    fn smart_gt<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    fn smart_gt<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_gt(lhs, rhs)
     }
-    fn smart_ge<T: FixedCiphertextInner>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
-        propagate_if_needed_parallelized(&mut [lhs.bits_mut(), rhs.bits_mut()], &self.key);
+    fn smart_ge<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> BooleanBlock {
+        propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
         self.unchecked_ge(lhs, rhs)
     }
 
-    fn unchecked_eq<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
+    fn unchecked_eq<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         // this is the same regardless of sign
         self.key.unchecked_eq_parallelized(lhs.bits(), rhs.bits())
     }
-    fn unchecked_ne<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
+    fn unchecked_ne<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         // this is the same regardless of sign
         self.key.unchecked_ne_parallelized(lhs.bits(), rhs.bits())
     }
-    fn unchecked_lt<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
+    fn unchecked_lt<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
@@ -54,7 +53,7 @@ impl FixedServerKey {
             self.key.unchecked_lt_parallelized(lhs.bits(), rhs.bits())
         }
     }
-    fn unchecked_le<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
+    fn unchecked_le<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
@@ -63,7 +62,7 @@ impl FixedServerKey {
             self.key.unchecked_le_parallelized(lhs.bits(), rhs.bits())
         }
     }
-    fn unchecked_gt<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
+    fn unchecked_gt<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());
@@ -72,7 +71,7 @@ impl FixedServerKey {
             self.key.unchecked_gt_parallelized(lhs.bits(), rhs.bits())
         }
     }
-    fn unchecked_ge<T: FixedCiphertextInner>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
+    fn unchecked_ge<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> BooleanBlock {
         if T::IS_SIGNED {
             let lhs_signed = SignedRadixCiphertext::from_blocks(lhs.bits().clone().into_blocks());
             let rhs_signed = SignedRadixCiphertext::from_blocks(rhs.bits().clone().into_blocks());

@@ -1,8 +1,8 @@
-use crate::fixed::{Bits, FixedServerKey};
+use crate::fixed::{Bits, BitsMutToken, FixedServerKey};
 use crate::{
     fixed::{
         traits::{FixedFrac, FixedSize},
-        FixedCiphertextInner,
+        FixedCiphertext,
     },
 };
 
@@ -14,10 +14,10 @@ use tfhe::{
 use crate::{FheFixedI, FheFixedU};
 
 impl FixedServerKey {
-    fn smart_floor<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
+    fn smart_floor<T: FixedCiphertext>(&self, c: &mut T) -> T {
         self.smart_trunc(c, 0)
     }
-    fn smart_ceil<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
+    fn smart_ceil<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let frac = c.frac();
         if frac == 0 {
             return c.clone();
@@ -30,17 +30,17 @@ impl FixedServerKey {
             return T::new(res_bits);
         }
 
-        let tmp = self.key.smart_scalar_sub_parallelized(c.bits_mut(), 1u64);
+        let tmp = self.key.smart_scalar_sub_parallelized(c.bits_mut(BitsMutToken), 1u64);
         let mut res = self.smart_floor(&mut T::new(tmp));
         let mut one: Bits = self.key.create_trivial_radix(1, T::SIZE as usize / 2);
         self.key
             .scalar_left_shift_assign_parallelized(&mut one, c.frac());
 
         self.key
-            .smart_add_assign_parallelized(res.bits_mut(), &mut one);
+            .smart_add_assign_parallelized(res.bits_mut(BitsMutToken), &mut one);
         res
     }
-    fn smart_round<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
+    fn smart_round<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let frac = c.frac();
         if frac == 0 {
             return c.clone();
@@ -54,7 +54,7 @@ impl FixedServerKey {
         }
         // This is needed because we need to extract the sign bit
         if !c.bits().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.bits_mut());
+            self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
         if T::IS_SIGNED {
             // If the type is signed, the simple `round_tie_to_plus_infinity` does not work
@@ -87,7 +87,7 @@ impl FixedServerKey {
                     // This is exactly what we want when c < 0
                     let tmp = self
                         .key
-                        .smart_scalar_sub_parallelized(c.clone().bits_mut(), 1u64);
+                        .smart_scalar_sub_parallelized(c.clone().bits_mut(BitsMutToken), 1u64);
                     self.round_tie_to_plus_infinity(&mut T::new(tmp))
                 },
                 || {
@@ -105,14 +105,14 @@ impl FixedServerKey {
             self.round_tie_to_plus_infinity(c)
         }
     }
-    fn smart_trunc<T: FixedCiphertextInner>(&self, c: &mut T, prec: usize) -> T {
+    fn smart_trunc<T: FixedCiphertext>(&self, c: &mut T, prec: usize) -> T {
         let frac: usize = c.frac() as usize;
         if prec > frac {
             panic!("Prec cannot be greater then the Frac of self!");
         }
         let bits_to_lose = frac - prec;
         if !c.bits().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.bits_mut());
+            self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
         let mut blocks = c.bits().clone().into_blocks();
         blocks.drain(0..bits_to_lose >> 1);
@@ -129,9 +129,9 @@ impl FixedServerKey {
         T::new(cipher)
     }
 
-    fn round_tie_to_plus_infinity<T: FixedCiphertextInner>(&self, c: &mut T) -> T {
+    fn round_tie_to_plus_infinity<T: FixedCiphertext>(&self, c: &mut T) -> T {
         if !c.bits().block_carries_are_empty() {
-            self.key.full_propagate_parallelized(c.bits_mut());
+            self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
 
         let num_blocks = T::SIZE as usize / 2;
