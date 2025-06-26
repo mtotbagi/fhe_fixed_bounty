@@ -1,8 +1,11 @@
-use fixed::types::extra::LeEqU128;
-use fixed::types::U4F12;
-use tfhe::{FheFixedU, FixedCiphertext, FixedClientKey, FixedFrac, FixedServerKey, FixedSize};
-use tfhe::FheU4F12;
+extern crate fixed as fixed_crate;
 
+use fixed_crate::types::extra::LeEqU128;
+use fixed_crate::types::U4F12;
+
+mod fixed;
+use fixed::*;
+use fixed::aliases::*;
 fn main() {
     
     // Generate the client key and the server key:
