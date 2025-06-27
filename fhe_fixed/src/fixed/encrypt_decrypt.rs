@@ -7,8 +7,252 @@ use crate::fixed::{Bits, FixedServerKey};
 use crate::FheFixedU;
 use crate::FixedCiphertext;
 
-use crate::fixed::traits::{FixedFrac, FixedSize};
+use crate::fixed::traits::{DecryptFixed, DecryptToBitsFixed, EncryptFixed, EncryptTrivialFixed, EncryptFromBitsFixed, FixedFrac, FixedSize};
 
+impl FixedServerKey 
+    {
+    pub fn from_bits<T: FixedCiphertext>(&self, bits: Bits) -> T {
+        let len: usize = T::SIZE as usize / 2;
+        let mut blocks = bits.into_blocks();
+        blocks.truncate(len);
+        let cur_len = blocks.len();
+        let mut bits = Bits::from_blocks(blocks);
+        self.key
+            .extend_radix_with_trivial_zero_blocks_msb_assign(&mut bits, len - cur_len);
+        T::new(bits)
+    }
+
+    pub fn encrypt_trivial<U, T>(&self, clear: U) -> T where 
+    T: EncryptTrivialFixed<U> {
+        T::encrypt_trivial(clear, self)
+    }
+
+    pub fn encrypt_trivial_from_bits<T>(&self, bits: Vec<u64>) -> T where 
+    T: EncryptFromBitsFixed {
+        T::encrypt_trivial_from_bits(bits, self)
+    }
+}
+
+impl FixedClientKey {
+    pub fn encrypt<U, T>(&self, clear: U) -> T where 
+    T: EncryptFixed<U> {
+        T::encrypt(clear, self)
+    }
+
+    pub fn encrypt_from_bits<T>(&self, bits: Vec<u64>) -> T where 
+    T: EncryptFromBitsFixed {
+        T::encrypt_from_bits(bits, self)
+    }
+
+    pub fn decrypt<U, T>(&self, cipher: &T) -> U where 
+    T: DecryptFixed<U> {
+        cipher.decrypt(&self)
+    }
+
+    pub fn decrypt_to_bits<T>(&self, cipher: &T) -> Vec<u64> where 
+    T: DecryptToBitsFixed {
+        cipher.decrypt_to_bits(&self)
+    }
+}
+
+
+impl<U, Size, Frac> EncryptFixed<U> for FheFixedU<Size,Frac> where
+    ArbFixedU<Size, Frac>: From<U>,
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn encrypt(clear: U, key: &FixedClientKey) -> FheFixedU<Size, Frac>
+    {
+        let fix: ArbFixedU<Size, Frac> = clear.into();
+
+        let extract_bits = |x: &u64| {
+            let mut result = [0u8; 32];
+            for i in 0..32 {
+                result[i] = ((x >> (2 * i)) & 0b11) as u8;
+            }
+            result
+        };
+
+        let blocks = fix
+            .parts
+            .iter()
+            .flat_map(extract_bits)
+            .take(Size::USIZE >> 1)
+            .map(|x| key.key.encrypt_one_block(x as u64))
+            .collect::<Vec<Ciphertext>>();
+
+        Self::new(Bits::from_blocks(blocks))
+    }
+
+}
+
+impl<U, Size, Frac> EncryptFixed<U> for FheFixedI<Size,Frac> where
+    ArbFixedI<Size, Frac>: From<U>,
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn encrypt(clear: U, key: &FixedClientKey) -> FheFixedI<Size, Frac>
+    {
+        let fix: ArbFixedI<Size, Frac> = clear.into();
+
+        let extract_bits = |x: &u64| {
+            let mut result = [0u8; 32];
+            for i in 0..32 {
+                result[i] = ((x >> (2 * i)) & 0b11) as u8;
+            }
+            result
+        };
+
+        let blocks = fix
+            .parts
+            .iter()
+            .flat_map(extract_bits)
+            .take(Size::USIZE >> 1)
+            .map(|x| key.key.encrypt_one_block(x as u64))
+            .collect::<Vec<Ciphertext>>();
+
+        Self::new(Bits::from_blocks(blocks))
+    }
+
+}
+
+impl<U, Size, Frac> DecryptFixed<U> for FheFixedU<Size, Frac> where
+    U: From<ArbFixedU<Size, Frac>>,
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn decrypt(&self, key: &FixedClientKey) -> U {
+        let blocks = self.inner.bits().blocks();
+        let shortint_key: &tfhe::shortint::ClientKey = key.key.as_ref();
+        let clear_blocks: Vec<u8> = blocks
+            .iter()
+            .map(|x| shortint_key.decrypt_message_and_carry(x) as u8)
+            .collect();
+
+        let values = blocks_with_carry_to_u64(clear_blocks);
+
+        U::from(ArbFixedU::from_bits(values))
+    }
+}
+
+impl<U, Size, Frac> DecryptFixed<U> for FheFixedI<Size, Frac> where
+    U: From<ArbFixedI<Size, Frac>>,
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn decrypt(&self, key: &FixedClientKey) -> U {
+        let blocks = self.inner.bits().blocks();
+        let shortint_key: &tfhe::shortint::ClientKey = key.key.as_ref();
+        let clear_blocks: Vec<u8> = blocks
+            .iter()
+            .map(|x| shortint_key.decrypt_message_and_carry(x) as u8)
+            .collect();
+
+        let values = blocks_with_carry_to_u64(clear_blocks);
+
+        U::from(ArbFixedI::from_bits(values))
+    }
+}
+
+impl<U, Size, Frac> EncryptTrivialFixed<U> for FheFixedU<Size, Frac> where
+    ArbFixedU<Size, Frac>: From<U>,
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn encrypt_trivial(clear: U, key: &FixedServerKey) -> Self
+    {
+        let fix: ArbFixedU<Size, Frac> = clear.into();
+
+        let extract_bits = |x: &u64| {
+            let mut result = [0u8; 32];
+            for i in 0..32 {
+                result[i] = ((x >> (2 * i)) & 0b11) as u8;
+            }
+            result
+        };
+
+        let blocks = fix
+            .parts
+            .iter()
+            .flat_map(extract_bits)
+            .take(Size::USIZE >> 1)
+            .map(|x| key.key.as_ref().create_trivial(x as u64))
+            .collect::<Vec<Ciphertext>>();
+
+        Self::new(Bits::from_blocks(blocks))
+    }
+}
+
+impl<U, Size, Frac> EncryptTrivialFixed<U> for FheFixedI<Size, Frac> where
+    ArbFixedI<Size, Frac>: From<U>,
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn encrypt_trivial(clear: U, key: &FixedServerKey) -> Self
+    {
+        let fix: ArbFixedI<Size, Frac> = clear.into();
+
+        let extract_bits = |x: &u64| {
+            let mut result = [0u8; 32];
+            for i in 0..32 {
+                result[i] = ((x >> (2 * i)) & 0b11) as u8;
+            }
+            result
+        };
+
+        let blocks = fix
+            .parts
+            .iter()
+            .flat_map(extract_bits)
+            .take(Size::USIZE >> 1)
+            .map(|x| key.key.as_ref().create_trivial(x as u64))
+            .collect::<Vec<Ciphertext>>();
+
+        Self::new(Bits::from_blocks(blocks))
+    }
+}
+
+impl<Size, Frac> EncryptFromBitsFixed for FheFixedU<Size, Frac> where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self {
+        let arb = ArbFixedU::<Size, Frac>::from_bits(bits);
+        Self::encrypt_trivial(arb, key)
+    }
+
+    fn encrypt_from_bits(bits: Vec<u64>, key: &FixedClientKey) -> Self {
+        let arb = ArbFixedU::<Size, Frac>::from_bits(bits);
+        Self::encrypt(arb, key)
+    }
+}
+
+impl<Size, Frac> EncryptFromBitsFixed for FheFixedI<Size, Frac> where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self {
+        let arb = ArbFixedI::<Size, Frac>::from_bits(bits);
+        Self::encrypt_trivial(arb, key)
+    }
+
+    fn encrypt_from_bits(bits: Vec<u64>, key: &FixedClientKey) -> Self {
+        let arb = ArbFixedI::<Size, Frac>::from_bits(bits);
+        Self::encrypt(arb, key)
+    }
+}
+
+impl<Size, Frac> DecryptToBitsFixed for FheFixedU<Size, Frac> where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64> {
+        let arb_result: ArbFixedU<Size, Frac> = self.decrypt(key);
+        arb_result.parts
+    }
+}
+
+impl<Size, Frac> DecryptToBitsFixed for FheFixedI<Size, Frac> where
+    Size: FixedSize<Frac>,
+    Frac: FixedFrac {
+    fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64> {
+        let arb_result: ArbFixedI<Size, Frac> = self.decrypt(key);
+        arb_result.parts
+    }
+}
+
+/*
 impl<Size, Frac> FheFixedU<Size, Frac>
 where
     Size: FixedSize<Frac>,
@@ -101,7 +345,7 @@ where
             .map(|x| key.key.encrypt_one_block(x as u64))
             .collect::<Vec<Ciphertext>>();
 
-        Self::from_bits_inner(Bits::from_blocks(blocks))
+        Self::new(Bits::from_blocks(blocks))
     }
 
     /// Creates an encrypted FheFixedU.
@@ -379,7 +623,7 @@ where
             .map(|x| key.key.encrypt_one_block(x as u64))
             .collect::<Vec<Ciphertext>>();
 
-        Self::from_bits_inner(Bits::from_blocks(blocks))
+        Self::new(Bits::from_blocks(blocks))
     }
 
     /// Creates an encrypted FheFixedI.
@@ -564,6 +808,7 @@ where
         arb_result.parts
     }
 }
+*/
 
 /// ### NOTE
 /// Currently the carry and the overflow from the msb block may or may not be lost. This may or may not change!

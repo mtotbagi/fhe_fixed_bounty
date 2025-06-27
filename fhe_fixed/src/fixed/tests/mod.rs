@@ -7,8 +7,8 @@ macro_rules! encrypt_for_test {
                 <$Fixed>::from_bits($RhsBits as _),
             );
             (
-                <$FheFixed>::encrypt_trivial(lhs_fixed, &SKEY),
-                <$FheFixed>::encrypt_trivial(rhs_fixed, &SKEY),
+                SKEY.encrypt_trivial(lhs_fixed),
+                SKEY.encrypt_trivial(rhs_fixed),
                 lhs_fixed,
                 rhs_fixed,
             )
@@ -18,8 +18,8 @@ macro_rules! encrypt_for_test {
                 <$Fixed>::from_bits($RhsBits as _),
             );
             (
-                <$FheFixed>::encrypt(lhs_fixed, &CKEY),
-                <$FheFixed>::encrypt(rhs_fixed, &CKEY),
+                CKEY.encrypt(lhs_fixed),
+                CKEY.encrypt(rhs_fixed),
                 lhs_fixed,
                 rhs_fixed,
             )
@@ -30,10 +30,10 @@ macro_rules! encrypt_for_test {
         $Fixed:ty, $TrivialEncrypt:expr) => {
         if $TrivialEncrypt {
             let fixed = <$Fixed>::from_bits($ClearBits as _);
-            (<$FheFixed>::encrypt_trivial(fixed, &SKEY), fixed)
+            (SKEY.encrypt_trivial(fixed), fixed)
         } else {
             let fixed = <$Fixed>::from_bits($ClearBits as _);
-            (<$FheFixed>::encrypt(fixed, &CKEY), fixed)
+            (CKEY.encrypt(fixed), fixed)
         }
     };
 }
@@ -49,7 +49,7 @@ macro_rules! test_unary_op {
 
         let clear_res = <$Fixed>::$ClearMethod(fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &SKEY);
-        let decrypted_res: $Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
+        let decrypted_res: $Fixed = CKEY.decrypt(&encrypted_res);
 
         assert_eq!(
             clear_res, decrypted_res,
@@ -68,7 +68,7 @@ macro_rules! test_bin_op {
 
         let clear_res = <$Fixed>::$ClearMethod(lhs_fixed, rhs_fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &mut rhs, &SKEY);
-        let decrypted_res: $Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
+        let decrypted_res: $Fixed = CKEY.decrypt(&encrypted_res);
 
         assert_eq!(
             clear_res, decrypted_res,
@@ -87,7 +87,7 @@ macro_rules! test_sqr {
 
         let clear_res = <$Fixed>::$ClearMethod(fixed, fixed);
         let encrypted_res = <$FheFixed>::$EncryptedMethod(&mut lhs, &SKEY);
-        let decrypted_res: $Fixed = <$FheFixed>::decrypt(&encrypted_res, &CKEY);
+        let decrypted_res: $Fixed = CKEY.decrypt(&encrypted_res);
 
         assert_eq!(
             clear_res, decrypted_res,

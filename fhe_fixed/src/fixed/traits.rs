@@ -1,6 +1,6 @@
 use typenum::{Cmp, IsGreaterOrEqual, Same, True, UInt, Unsigned, B0, U0, U2};
 
-use crate::fixed::traits::private::BitsMutToken;
+use crate::fixed::{traits::private::BitsMutToken, FixedClientKey, FixedServerKey};
 
 use super::Bits;
 
@@ -76,4 +76,25 @@ pub trait FixedCiphertext: Clone + Sync + Send {
     fn new(bits: Bits) -> Self;
     fn bits_in_block(&self) -> u32;
     fn bits_mut(&mut self, _: BitsMutToken) -> &mut Bits;
+}
+
+pub(crate) trait EncryptFixed<U> {
+    fn encrypt(clear: U, key: &FixedClientKey) -> Self;
+}
+
+pub(crate) trait EncryptTrivialFixed<U> {
+    fn encrypt_trivial(clear: U, key: &FixedServerKey) -> Self;
+}
+
+pub(crate) trait EncryptFromBitsFixed {
+    fn encrypt_from_bits(bits: Vec<u64>, key: &FixedClientKey) -> Self;
+    fn encrypt_trivial_from_bits(bits: Vec<u64>, key: &FixedServerKey) -> Self;
+}
+
+pub(crate) trait DecryptFixed<U> {
+    fn decrypt(&self, key: &FixedClientKey) -> U;
+}
+
+pub(crate) trait DecryptToBitsFixed {
+    fn decrypt_to_bits(&self, key: &FixedClientKey) -> Vec<u64>;
 }
