@@ -1,21 +1,17 @@
 use crate::fixed::{propagate_if_needed_parallelized, Bits, BitsMutToken, FixedServerKey};
-use crate::fixed::{
-    traits::{FixedFrac, FixedSize},
-    FixedCiphertext,
-};
+use crate::fixed::FixedCiphertext;
 
 use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext, ServerKey, SignedRadixCiphertext};
-use crate::{FheFixedI, FheFixedU};
 use rayon::prelude::*;
 
 impl FixedServerKey {
-    pub(crate) fn smart_mul<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
+    pub fn smart_mul<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) -> T {
         propagate_if_needed_parallelized(&mut [lhs.bits_mut(BitsMutToken), rhs.bits_mut(BitsMutToken)], &self.key);
 
         self.unchecked_mul(lhs, rhs)
     }
 
-    pub(crate) fn unchecked_mul<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
+    pub fn unchecked_mul<T: FixedCiphertext>(&self, lhs: &T, rhs: &T) -> T {
         let blocks_with_frac = (lhs.frac() + 1) >> 1;
         if !T::IS_SIGNED {
             let mut lhs_bits = lhs.bits().clone();
@@ -66,15 +62,15 @@ impl FixedServerKey {
         }
     }
 
-    pub(crate) fn smart_mul_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) {
+    pub fn smart_mul_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &mut T) {
         *lhs = self.smart_mul(lhs, rhs);
     }
 
-    pub(crate) fn unchecked_mul_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &T) {
+    pub fn unchecked_mul_assign<T: FixedCiphertext>(&self, lhs: &mut T, rhs: &T) {
         *lhs = self.unchecked_mul(lhs, rhs)
     }
 
-    pub(crate) fn smart_sqr<T: FixedCiphertext>(&self, c: &mut T) -> T {
+    pub fn smart_sqr<T: FixedCiphertext>(&self, c: &mut T) -> T {
         if !c.bits().block_carries_are_empty() {
             self.key.full_propagate_parallelized(c.bits_mut(BitsMutToken));
         }
@@ -82,7 +78,7 @@ impl FixedServerKey {
         self.unchecked_sqr(c)
     }
 
-    pub(crate) fn unchecked_sqr<T: FixedCiphertext>(&self, c: &T) -> T {
+    pub fn unchecked_sqr<T: FixedCiphertext>(&self, c: &T) -> T {
         let blocks_with_frac = (c.frac() + 1) >> 1;
         if !T::IS_SIGNED {
             let mut bits = c.bits().clone();
@@ -123,212 +119,212 @@ impl FixedServerKey {
         }
     }
 
-    pub(crate) fn smart_sqr_assign<T: FixedCiphertext>(&self, c: &mut T) {
+    pub fn smart_sqr_assign<T: FixedCiphertext>(&self, c: &mut T) {
         *c = self.smart_sqr(c);
     }
 
-    pub(crate) fn unchecked_sqr_assign<T: FixedCiphertext>(&self, c: &mut T) {
+    pub fn unchecked_sqr_assign<T: FixedCiphertext>(&self, c: &mut T) {
         *c = self.unchecked_sqr(c);
     }
 }
 
-impl<Size, Frac> FheFixedU<Size, Frac>
-where
-    Size: FixedSize<Frac>,
-    Frac: FixedFrac,
-{
-    /// Computes homomorphically a multiplication between two ciphertexts encrypting fixed point numbers.
-    ///
-    /// # Warning
-    ///
-    /// - Multithreaded
-    ///
-    /// # Example
-    /// ```rust
-    /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::FheU8F8;
-    /// use fixed::types::U8F8;
-    ///
-    /// // Generate the client key and the server key:
-    /// let ckey = FixedClientKey::new();
-    /// let skey = FixedServerKey::new(&ckey);
-    ///
-    /// let clear_a: U8F8 = U8F8::from_num(12.8);
-    /// let clear_b: U8F8 = U8F8::from_num(1.8);
-    ///
-    /// //Encrypt:
-    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
-    ///
-    /// // Compute homomorphically a multiplication:
-    /// let ct_res = a.smart_mul(&mut b, &skey);
-    ///
-    /// // Decrypt:
-    /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-    /// assert_eq!(dec_result, clear_a * clear_b);
-    /// ```
-    pub fn smart_mul(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.smart_mul(&mut self.inner, &mut lhs.inner),
-        }
-    }
-    pub fn unchecked_mul(&self, lhs: &Self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.unchecked_mul(&self.inner, &lhs.inner),
-        }
-    }
-    pub fn smart_mul_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
-        key.smart_mul_assign(&mut self.inner, &mut lhs.inner)
-    }
-    pub fn unchecked_mul_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
-        key.unchecked_mul_assign(&mut self.inner, &lhs.inner)
-    }
+// impl<Size, Frac> FheFixedU<Size, Frac>
+// where
+//     Size: FixedSize<Frac>,
+//     Frac: FixedFrac,
+// {
+//     /// Computes homomorphically a multiplication between two ciphertexts encrypting fixed point numbers.
+//     ///
+//     /// # Warning
+//     ///
+//     /// - Multithreaded
+//     ///
+//     /// # Example
+//     /// ```rust
+//     /// use tfhe::{FixedClientKey, FixedServerKey};
+//     /// use tfhe::FheU8F8;
+//     /// use fixed::types::U8F8;
+//     ///
+//     /// // Generate the client key and the server key:
+//     /// let ckey = FixedClientKey::new();
+//     /// let skey = FixedServerKey::new(&ckey);
+//     ///
+//     /// let clear_a: U8F8 = U8F8::from_num(12.8);
+//     /// let clear_b: U8F8 = U8F8::from_num(1.8);
+//     ///
+//     /// //Encrypt:
+//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+//     /// let mut b = FheU8F8::encrypt(clear_b, &ckey);
+//     ///
+//     /// // Compute homomorphically a multiplication:
+//     /// let ct_res = a.smart_mul(&mut b, &skey);
+//     ///
+//     /// // Decrypt:
+//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
+//     /// assert_eq!(dec_result, clear_a * clear_b);
+//     /// ```
+//     pub fn smart_mul(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.smart_mul(&mut self.inner, &mut lhs.inner),
+//         }
+//     }
+//     pub fn unchecked_mul(&self, lhs: &Self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.unchecked_mul(&self.inner, &lhs.inner),
+//         }
+//     }
+//     pub fn smart_mul_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
+//         key.smart_mul_assign(&mut self.inner, &mut lhs.inner)
+//     }
+//     pub fn unchecked_mul_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
+//         key.unchecked_mul_assign(&mut self.inner, &lhs.inner)
+//     }
 
-    /// Computes homomorphically the square of a ciphertexts encrypting a fixed point number.
-    /// On overflow, the result is wrapped around.
-    ///
-    /// # Warning
-    ///
-    /// - Multithreaded
-    ///
-    /// # Example
-    /// ```rust
-    /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::FheU8F8;
-    /// use fixed::types::U8F8;
-    ///
-    /// // Generate the client key and the server key:
-    /// let ckey = FixedClientKey::new();
-    /// let skey = FixedServerKey::new(&ckey);
-    ///
-    /// let clear_a: U8F8 = U8F8::from_num(4.2);
-    ///
-    /// //Encrypt:
-    /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-    ///
-    /// // Compute homomorphically the square:
-    /// let ct_res = a.smart_sqr(&skey);
-    ///
-    /// // Decrypt:
-    /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-    /// assert_eq!(dec_result, clear_a * clear_a);
-    /// ```
-    pub fn smart_sqr(&mut self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.smart_sqr(&mut self.inner),
-        }
-    }
-    pub fn unchecked_sqr(&self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.unchecked_sqr(&self.inner),
-        }
-    }
-    pub fn smart_sqr_assign(&mut self, key: &FixedServerKey) {
-        key.smart_sqr_assign(&mut self.inner)
-    }
-    pub fn unchecked_sqr_assign(&mut self, key: &FixedServerKey) {
-        key.unchecked_sqr_assign(&mut self.inner)
-    }
-}
+//     /// Computes homomorphically the square of a ciphertexts encrypting a fixed point number.
+//     /// On overflow, the result is wrapped around.
+//     ///
+//     /// # Warning
+//     ///
+//     /// - Multithreaded
+//     ///
+//     /// # Example
+//     /// ```rust
+//     /// use tfhe::{FixedClientKey, FixedServerKey};
+//     /// use tfhe::FheU8F8;
+//     /// use fixed::types::U8F8;
+//     ///
+//     /// // Generate the client key and the server key:
+//     /// let ckey = FixedClientKey::new();
+//     /// let skey = FixedServerKey::new(&ckey);
+//     ///
+//     /// let clear_a: U8F8 = U8F8::from_num(4.2);
+//     ///
+//     /// //Encrypt:
+//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
+//     ///
+//     /// // Compute homomorphically the square:
+//     /// let ct_res = a.smart_sqr(&skey);
+//     ///
+//     /// // Decrypt:
+//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
+//     /// assert_eq!(dec_result, clear_a * clear_a);
+//     /// ```
+//     pub fn smart_sqr(&mut self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.smart_sqr(&mut self.inner),
+//         }
+//     }
+//     pub fn unchecked_sqr(&self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.unchecked_sqr(&self.inner),
+//         }
+//     }
+//     pub fn smart_sqr_assign(&mut self, key: &FixedServerKey) {
+//         key.smart_sqr_assign(&mut self.inner)
+//     }
+//     pub fn unchecked_sqr_assign(&mut self, key: &FixedServerKey) {
+//         key.unchecked_sqr_assign(&mut self.inner)
+//     }
+// }
 
-impl<Size, Frac> FheFixedI<Size, Frac>
-where
-    Size: FixedSize<Frac>,
-    Frac: FixedFrac,
-{
-    /// Computes homomorphically a multiplication between two ciphertexts encrypting fixed point numbers.
-    /// On overflow, the result is wrapped around.
-    ///
-    /// # Warning
-    ///
-    /// - Multithreaded
-    ///
-    /// # Example
-    /// ```rust
-    /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::FheI8F8;
-    /// use fixed::types::I8F8;
-    ///
-    /// // Generate the client key and the server key:
-    /// let ckey = FixedClientKey::new();
-    /// let skey = FixedServerKey::new(&ckey);
-    ///
-    /// let clear_a: I8F8 = I8F8::from_num(12.8);
-    /// let clear_b: I8F8 = I8F8::from_num(1.8);
-    ///
-    /// //Encrypt:
-    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
-    ///
-    /// // Compute homomorphically a multiplication:
-    /// let ct_res = a.smart_mul(&mut b, &skey);
-    ///
-    /// // Decrypt:
-    /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-    /// assert_eq!(dec_result, clear_a * clear_b);
-    /// ```
-    pub fn smart_mul(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.smart_mul(&mut self.inner, &mut lhs.inner),
-        }
-    }
-    pub fn unchecked_mul(&self, lhs: &Self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.unchecked_mul(&self.inner, &lhs.inner),
-        }
-    }
-    pub fn smart_mul_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
-        key.smart_mul_assign(&mut self.inner, &mut lhs.inner)
-    }
-    pub fn unchecked_mul_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
-        key.unchecked_mul_assign(&mut self.inner, &lhs.inner)
-    }
+// impl<Size, Frac> FheFixedI<Size, Frac>
+// where
+//     Size: FixedSize<Frac>,
+//     Frac: FixedFrac,
+// {
+//     /// Computes homomorphically a multiplication between two ciphertexts encrypting fixed point numbers.
+//     /// On overflow, the result is wrapped around.
+//     ///
+//     /// # Warning
+//     ///
+//     /// - Multithreaded
+//     ///
+//     /// # Example
+//     /// ```rust
+//     /// use tfhe::{FixedClientKey, FixedServerKey};
+//     /// use tfhe::FheI8F8;
+//     /// use fixed::types::I8F8;
+//     ///
+//     /// // Generate the client key and the server key:
+//     /// let ckey = FixedClientKey::new();
+//     /// let skey = FixedServerKey::new(&ckey);
+//     ///
+//     /// let clear_a: I8F8 = I8F8::from_num(12.8);
+//     /// let clear_b: I8F8 = I8F8::from_num(1.8);
+//     ///
+//     /// //Encrypt:
+//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+//     /// let mut b = FheI8F8::encrypt(clear_b, &ckey);
+//     ///
+//     /// // Compute homomorphically a multiplication:
+//     /// let ct_res = a.smart_mul(&mut b, &skey);
+//     ///
+//     /// // Decrypt:
+//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
+//     /// assert_eq!(dec_result, clear_a * clear_b);
+//     /// ```
+//     pub fn smart_mul(&mut self, lhs: &mut Self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.smart_mul(&mut self.inner, &mut lhs.inner),
+//         }
+//     }
+//     pub fn unchecked_mul(&self, lhs: &Self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.unchecked_mul(&self.inner, &lhs.inner),
+//         }
+//     }
+//     pub fn smart_mul_assign(&mut self, lhs: &mut Self, key: &FixedServerKey) {
+//         key.smart_mul_assign(&mut self.inner, &mut lhs.inner)
+//     }
+//     pub fn unchecked_mul_assign(&mut self, lhs: &Self, key: &FixedServerKey) {
+//         key.unchecked_mul_assign(&mut self.inner, &lhs.inner)
+//     }
 
-    /// Computes homomorphically the square of a ciphertexts encrypting a fixed point number.
-    ///
-    /// # Warning
-    ///
-    /// - Multithreaded
-    ///
-    /// # Example
-    /// ```rust
-    /// use tfhe::{FixedClientKey, FixedServerKey};
-    /// use tfhe::FheI8F8;
-    /// use fixed::types::I8F8;
-    ///
-    /// // Generate the client key and the server key:
-    /// let ckey = FixedClientKey::new();
-    /// let skey = FixedServerKey::new(&ckey);
-    ///
-    /// let clear_a: I8F8 = I8F8::from_num(4.2);
-    ///
-    /// //Encrypt:
-    /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-    ///
-    /// // Compute homomorphically the square:
-    /// let ct_res = a.smart_sqr(&skey);
-    ///
-    /// // Decrypt:
-    /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-    /// assert_eq!(dec_result, clear_a * clear_a);
-    /// ```
-    pub fn smart_sqr(&mut self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.smart_sqr(&mut self.inner),
-        }
-    }
-    pub fn unchecked_sqr(&self, key: &FixedServerKey) -> Self {
-        Self {
-            inner: key.unchecked_sqr(&self.inner),
-        }
-    }
-    pub fn smart_sqr_assign(&mut self, key: &FixedServerKey) {
-        key.smart_sqr_assign(&mut self.inner)
-    }
-    pub fn unchecked_sqr_assign(&mut self, key: &FixedServerKey) {
-        key.unchecked_sqr_assign(&mut self.inner)
-    }
-}
+//     /// Computes homomorphically the square of a ciphertexts encrypting a fixed point number.
+//     ///
+//     /// # Warning
+//     ///
+//     /// - Multithreaded
+//     ///
+//     /// # Example
+//     /// ```rust
+//     /// use tfhe::{FixedClientKey, FixedServerKey};
+//     /// use tfhe::FheI8F8;
+//     /// use fixed::types::I8F8;
+//     ///
+//     /// // Generate the client key and the server key:
+//     /// let ckey = FixedClientKey::new();
+//     /// let skey = FixedServerKey::new(&ckey);
+//     ///
+//     /// let clear_a: I8F8 = I8F8::from_num(4.2);
+//     ///
+//     /// //Encrypt:
+//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
+//     ///
+//     /// // Compute homomorphically the square:
+//     /// let ct_res = a.smart_sqr(&skey);
+//     ///
+//     /// // Decrypt:
+//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
+//     /// assert_eq!(dec_result, clear_a * clear_a);
+//     /// ```
+//     pub fn smart_sqr(&mut self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.smart_sqr(&mut self.inner),
+//         }
+//     }
+//     pub fn unchecked_sqr(&self, key: &FixedServerKey) -> Self {
+//         Self {
+//             inner: key.unchecked_sqr(&self.inner),
+//         }
+//     }
+//     pub fn smart_sqr_assign(&mut self, key: &FixedServerKey) {
+//         key.smart_sqr_assign(&mut self.inner)
+//     }
+//     pub fn unchecked_sqr_assign(&mut self, key: &FixedServerKey) {
+//         key.unchecked_sqr_assign(&mut self.inner)
+//     }
+// }
 
 pub fn smart_sqr<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) -> T {
     if !c.block_carries_are_empty() {

@@ -119,7 +119,7 @@ impl<U, Size, Frac> DecryptFixed<U> for FheFixedU<Size, Frac> where
     Size: FixedSize<Frac>,
     Frac: FixedFrac {
     fn decrypt(&self, key: &FixedClientKey) -> U {
-        let blocks = self.inner.bits().blocks();
+        let blocks = self.bits().blocks();
         let shortint_key: &tfhe::shortint::ClientKey = key.key.as_ref();
         let clear_blocks: Vec<u8> = blocks
             .iter()
@@ -137,7 +137,7 @@ impl<U, Size, Frac> DecryptFixed<U> for FheFixedI<Size, Frac> where
     Size: FixedSize<Frac>,
     Frac: FixedFrac {
     fn decrypt(&self, key: &FixedClientKey) -> U {
-        let blocks = self.inner.bits().blocks();
+        let blocks = self.bits().blocks();
         let shortint_key: &tfhe::shortint::ClientKey = key.key.as_ref();
         let clear_blocks: Vec<u8> = blocks
             .iter()

@@ -21,11 +21,11 @@ fn main() {
     let mut five: FheU4F12 = ckey.encrypt(clear_five);
     
     // Calculate the golden ratio:
-    let mut sqrt_five = five.smart_sqrt(&skey);
-    let mut one_plus_sqrt_five = one.smart_add(&mut sqrt_five, &skey);
+    let mut sqrt_five = skey.smart_sqrt(&mut five);
+    let mut one_plus_sqrt_five = skey.smart_add(&mut sqrt_five, &mut one);
     let mut half = reciprocal(&mut skey.encrypt_trivial(2), &skey);
-    let mut golden_ratio = one_plus_sqrt_five
-        .smart_mul(&mut half, &skey);
+    let mut golden_ratio = skey
+        .smart_mul(&mut half, &mut one_plus_sqrt_five);
 
     
     // Decrypt:
@@ -33,13 +33,13 @@ fn main() {
     println!("Golden ratio to twelve bits of precision: {:.4}", dec_golden_ratio_precise);
 
     // We truncate to keep the 4 most significant fractional bits
-    let golden_ratio_trunc = golden_ratio.smart_trunc(4, &skey);
+    let golden_ratio_trunc = skey.smart_trunc(&mut golden_ratio, 4);
     
     // Decrypt:
     let dec_golden_ratio_trunc: U4F12 = ckey.decrypt(&golden_ratio_trunc);
     println!("Golden ratio to four bits of precision: {:.4}", dec_golden_ratio_trunc);
 
-    let golden_ratio_round = golden_ratio.smart_round(&skey);
+    let golden_ratio_round = skey.smart_round(&mut golden_ratio);
     let clear_two: U4F12 = ckey.decrypt(&golden_ratio_round);
     println!("Golden ratio rounded is two: {}", clear_two);
 }
@@ -57,5 +57,5 @@ where Size: FixedSize<Frac> + LeEqU128,
         c.full_propagate_parallelized(key);
     }
 
-    FheFixedU::<Size, Frac>::unchecked_div(&trivial_one, c, key)
+    key.unchecked_div(&trivial_one, c)
 }
