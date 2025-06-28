@@ -1,3 +1,5 @@
+#![allow(private_bounds)]
+
 use tfhe::integer::{IntegerCiphertext, IntegerRadixCiphertext};
 use tfhe::shortint::Ciphertext;
 

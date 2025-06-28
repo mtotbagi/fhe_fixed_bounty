@@ -3,9 +3,7 @@ extern crate fixed as fixed_crate;
 use fixed_crate::types::extra::LeEqU128;
 use fixed_crate::types::U4F12;
 
-mod fixed;
-use fixed::*;
-use fixed::aliases::*;
+use fhe_fixed::*;
 
 fn main() {
     

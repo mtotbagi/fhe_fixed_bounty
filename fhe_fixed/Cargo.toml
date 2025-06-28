@@ -10,3 +10,16 @@ typenum = "1.18.0"
 rayon = "1.10.0"
 paste = "1.0.15"
 rand = "0.9.1"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "fixed-bench"
+path = "benches/bench.rs"
+harness = false
+
+[[bench]]
+name = "fixed-bench-signed"
+path = "benches/signed_bench.rs"
+harness = false
