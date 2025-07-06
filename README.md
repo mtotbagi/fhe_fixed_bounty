@@ -7,10 +7,12 @@ This repository contains our fully homomorphic implementation of fixed point ari
 An example code using the library can be found in the `fhe_fixed` folder
 
 ```rust
-use fixed::types::extra::LeEqU128;
-use fixed::types::U4F12;
-use tfhe::{FheFixedU, FixedCiphertext, FixedClientKey, FixedFrac, FixedServerKey, FixedSize};
-use tfhe::FheU4F12;
+extern crate fixed as fixed_crate;
+
+use fixed_crate::types::extra::LeEqU128;
+use fixed_crate::types::U4F12;
+
+use fhe_fixed::*;
 
 fn main() {
     
@@ -22,30 +24,30 @@ fn main() {
     let clear_five: U4F12 = U4F12::from_num(5);
     
     // Encrypt:
-    let mut one = FheU4F12::encrypt(clear_one, &ckey);
-    let mut five = FheU4F12::encrypt(clear_five, &ckey);
+    let mut one: FheU4F12 = ckey.encrypt(clear_one);
+    let mut five: FheU4F12 = ckey.encrypt(clear_five);
     
     // Calculate the golden ratio:
-    let mut sqrt_five = five.smart_sqrt(&skey);
-    let mut one_plus_sqrt_five = one.smart_add(&mut sqrt_five, &skey);
-    let mut half = reciprocal(&mut FheU4F12::encrypt_trivial(2, &skey), &skey);
-    let mut golden_ratio = one_plus_sqrt_five
-        .smart_mul(&mut half, &skey);
+    let mut sqrt_five = skey.smart_sqrt(&mut five);
+    let mut one_plus_sqrt_five = skey.smart_add(&mut sqrt_five, &mut one);
+    let mut half = reciprocal(&mut skey.encrypt_trivial(2), &skey);
+    let mut golden_ratio = skey
+        .smart_mul(&mut half, &mut one_plus_sqrt_five);
 
     
     // Decrypt:
-    let dec_golden_ratio_precise: U4F12 = golden_ratio.decrypt(&ckey);
+    let dec_golden_ratio_precise: U4F12 = ckey.decrypt(&golden_ratio);
     println!("Golden ratio to twelve bits of precision: {:.4}", dec_golden_ratio_precise);
 
     // We truncate to keep the 4 most significant fractional bits
-    let golden_ratio_trunc = golden_ratio.smart_trunc(4, &skey);
+    let golden_ratio_trunc = skey.smart_trunc(&mut golden_ratio, 4);
     
     // Decrypt:
-    let dec_golden_ratio_trunc: U4F12 = golden_ratio_trunc.decrypt(&ckey);
+    let dec_golden_ratio_trunc: U4F12 = ckey.decrypt(&golden_ratio_trunc);
     println!("Golden ratio to four bits of precision: {:.4}", dec_golden_ratio_trunc);
 
-    let golden_ratio_round = golden_ratio.smart_round(&skey);
-    let clear_two: U4F12 = golden_ratio_round.decrypt(&ckey);
+    let golden_ratio_round = skey.smart_round(&mut golden_ratio);
+    let clear_two: U4F12 = ckey.decrypt(&golden_ratio_round);
     println!("Golden ratio rounded is two: {}", clear_two);
 }
 
@@ -55,14 +57,14 @@ fn reciprocal<Size, Frac>(c: &mut FheFixedU<Size, Frac>, key: &FixedServerKey) -
 where Size: FixedSize<Frac> + LeEqU128,
       Frac: FixedFrac + LeEqU128
 {
-    let trivial_one: FheFixedU::<Size, Frac> = FheFixedU::<Size, Frac>::encrypt_trivial(1u32, key);
+    let trivial_one: FheFixedU::<Size, Frac> = key.encrypt_trivial(1u32);
 
     // If the carries are not empty, we propagate
     if c.bits().block_carries_are_empty() {
         c.full_propagate_parallelized(key);
     }
 
-    FheFixedU::<Size, Frac>::unchecked_div(&trivial_one, c, key)
+    key.unchecked_div(&trivial_one, c)
 }
 ```
 
@@ -81,7 +83,7 @@ Below is a list of implemented types and methods for the api.
 - `FheI{X}F{Y}`: An alias for `FheFixedI<U{X+Y}, U{Y}>`, with $X, Y \geq 0$ and $X+Y \in \{4, 8, 16, 32, 64, 128\}$. An example is `FheI8F24`.
 
 ### Methods
-All arithmetic operations that are implemented on the types `FheFixedU` and `FheFixedI` are detailed below:
+All arithmetic operations that are implemented on the `FixedServerKey` are detailed below, these operations can take in either `FheFixedU` or `FheFixedI` as arguments:
 - **add/sub/mul/div:** These come in two flavors `smart` or `unchecked`, and can either assign the result to the `lhs`, or return the result. An example is `smart_add_assign`.
 - **eq/ne/gt/ge/lt/le:** The comparison operators also come in `smart` and `unchecked` flavors, but they always return a `BooleanBlock` as their result. An example is `unchecked_ne`.
 - **neg/sqrt/sqr/dbl:** These also come in the same two flavors of `smart` and `unchecked`, and they also each have an assign variant that will assign the result to the input, and a normal variant that returns the result. An example is `unchecked_div`.
@@ -90,13 +92,13 @@ All arithmetic operations that are implemented on the types `FheFixedU` and `Fhe
 - **ilog2:** This also has two flavors, `smart` and `unchecked`. Returns a *signed* integer (`BaseSignedRadixCiphertext<Ciphertext>`). The variants therefore are `smart_ilog2` and `unchecked_ilog2`.
 
 #### Creating an `FheFixed(U/I)`
-This can be done either via encryption, or using an encrypted unsigned integer (`BaseRadixCiphertext<Ciphertext>`) as `bits`
+This can be done either via encryption, or using an encrypted unsigned integer (`BaseRadixCiphertext<Ciphertext>`) as `bits`.
 
-- `encrypt`
-- `encrypt_from_bits`
-- `encrypt_trivial`
-- `encrypt_trivial_from_bits`
-- `from_bits`
+- `FixedClientKey::encrypt`
+- `FixedClientKey::encrypt_from_bits`
+- `FixedServerKey::encrypt_trivial`
+- `FixedServerKey::encrypt_trivial_from_bits`
+- `FixedServerKey::from_bits`
 
 #### Decryption
 There are two decryption functions available:
@@ -143,13 +145,10 @@ make bench_fixed_signed
 
 ## Implementation
 
-The types `FheFixedU<Size, Frac>` and `FheFixedI<Size, Frac>` are wrapper types around `InnerFheFixedU<Size, Frac>` and `InnerFheFixedI<Size, Frac>` respectively.
+The types `FheFixedU<Size, Frac>` and `FheFixedI<Size, Frac>` are storage types for the fixed numbers, and implement almost no functionality so as to keep in line with FHE-rs convention and to prevent the corruption of their data. Namely by preventing amutable access to the internal data of the `FheFixedU/I` types we can ensure that the `BaseRadixCiphertext` they store will always be of the correct size.
 
-The need for wrapper types arises from the fact that for the implementation of the actual operations, one needs a mutable reference for the `bits` field of `InnerFheFixed(U/I)<Size, Frac>`, which is an encrypted unsigned integer (`BaseRadixCiphertext<Ciphertext>`). Through this one can modify the size of the `bits`, which would then not be equal to the `Size` type parameter!
-Thus a mutable reference to `bits` cannot be exposed in the API, hence the wrapper types.
-
-`FixedServerKey` and `FixedClientKey` are just wrappers around `integer::ServerKey` and `integer::ClientKey`, with the restriction that the parameter used is: `:shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128`.
-
+All arithmetic operations and trivial encryptions are impleneted on `FixedServerKey` which otherwise is a wrapper around `integer::ServerKey`, with the restriction that the parameter used is: `:shortint::parameters::PARAM_MESSAGE_2_CARRY_2_KS_PBS_TUNIFORM_2M128`.
+(Non-trivial) Encryption and decryption are impleneted on `FixedClientKey` which is similarly a wrapper around `integer::ClientKey` with the same restriction.
 
 ## Special operations
 
