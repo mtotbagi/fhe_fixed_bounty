@@ -185,7 +185,7 @@ impl FixedServerKey {
     }
 }
 
-pub fn smart_sqr<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) -> T {
+fn smart_sqr<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) -> T {
     if !c.block_carries_are_empty() {
         key.full_propagate_parallelized(c);
     }
@@ -200,7 +200,7 @@ pub fn smart_sqr<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) -> T {
 /// Then c^2 = (sum a_i)^2 = 2*(sum_{i != j} a_i * a_j) + sum_{i=0}^{n-1} a_i^2
 /// The first sum can be calculated with radix_ciphertext * block multiplications
 /// The second with a few block*block multiplication
-pub fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
+fn smart_sqr_assign<T: IntegerRadixCiphertext>(c: &mut T, key: &ServerKey) {
     if !c.block_carries_are_empty() {
         key.full_propagate_parallelized(c);
     }
