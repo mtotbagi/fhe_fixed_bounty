@@ -8,9 +8,64 @@ use tfhe::{
 };
 
 impl FixedServerKey {
+    /// Computes homomorphically the floor of a ciphertext encrypting a fixed point number.
+    /// Rounds to the next integer towards 0.
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use fixed::types::U8F8;
+    /// use fhe_fixed::*;
+    ///
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    ///
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    ///
+    /// //Encrypt:
+    /// let mut a: FheU8F8 = ckey.encrypt(clear_a);
+    ///
+    /// let ct_res = skey.smart_floor(&mut a);
+    ///
+    /// // Decrypt:
+    /// let dec_result: U8F8 = ckey.decrypt(&ct_res);
+    /// assert_eq!(dec_result, clear_a.wrapping_floor());
+    /// ```
     pub fn smart_floor<T: FixedCiphertext>(&self, c: &mut T) -> T {
         self.smart_trunc(c, 0)
     }
+
+    /// Computes homomorphically the ceil of a ciphertext encrypting a fixed point number.
+    /// Rounds to the next integer towards +∞, wrapping on overflow
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use fixed::types::U8F8;
+    /// use fhe_fixed::*;
+    ///
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    ///
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    ///
+    /// //Encrypt:
+    /// let mut a: FheU8F8 = ckey.encrypt(clear_a);
+    ///
+    /// let ct_res = skey.smart_ceil(&mut a);
+    ///
+    /// // Decrypt:
+    /// let dec_result: U8F8 = ckey.decrypt(&ct_res);
+    /// assert_eq!(dec_result, clear_a.wrapping_ceil());
+    /// ```
     pub fn smart_ceil<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let frac = c.frac();
         if frac == 0 {
@@ -34,6 +89,34 @@ impl FixedServerKey {
             .smart_add_assign_parallelized(res.bits_mut(BitsMutToken), &mut one);
         res
     }
+
+    /// Homomorphically rounds a ciphertext encrypting a fixed point number to the nearest integer.
+    /// Ties are rounded towards +∞, wrapping on overflow
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use fixed::types::U8F8;
+    /// use fhe_fixed::*;
+    ///
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    ///
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    ///
+    /// //Encrypt:
+    /// let mut a: FheU8F8 = ckey.encrypt(clear_a);
+    ///
+    /// let ct_res = skey.smart_round(&mut a);
+    ///
+    /// // Decrypt:
+    /// let dec_result: U8F8 = ckey.decrypt(&ct_res);
+    /// assert_eq!(dec_result, clear_a.wrapping_round());
+    /// ```
     pub fn smart_round<T: FixedCiphertext>(&self, c: &mut T) -> T {
         let frac = c.frac();
         if frac == 0 {
@@ -99,6 +182,35 @@ impl FixedServerKey {
             self.round_tie_to_plus_infinity(c)
         }
     }
+
+    /// Homomorphically truncates a ciphertext encrypting a fixed point number to the given precision.
+    /// `prec` has to be between 0 and `Frac`, the number of fractional bits this type has.
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use fixed::types::U8F8;
+    /// use fhe_fixed::*;
+    ///
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    ///
+    /// let clear_a: U8F8 = U8F8::from_num(12.625);
+    ///
+    /// //Encrypt:
+    /// let mut a: FheU8F8 = ckey.encrypt(clear_a);
+    ///
+    /// // We truncate to prec = 1, meaning that only the most signifigant fractional bit is kept
+    /// let ct_res = skey.smart_trunc(&mut a, 1);
+    ///
+    /// // Decrypt:
+    /// let dec_result: U8F8 = ckey.decrypt(&ct_res);
+    /// assert_eq!(dec_result, U8F8::from_num(12.5));
+    /// ```
     pub fn smart_trunc<T: FixedCiphertext>(&self, c: &mut T, prec: usize) -> T {
         let frac: usize = c.frac() as usize;
         if prec > frac {
@@ -164,289 +276,3 @@ impl FixedServerKey {
         truncated_c
     }
 }
-
-// impl<Size, Frac> FheFixedU<Size, Frac>
-// where
-//     Size: FixedSize<Frac>,
-//     Frac: FixedFrac,
-// {
-//     /// Computes homomorphically the floor of a ciphertext encrypting a fixed point number.
-//     /// Rounds to the next integer towards 0.
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheU8F8;
-//     /// use fixed::types::U8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_floor(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_floor());
-//     /// ```
-//     pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_floor(&mut self.inner),
-//         }
-//     }
-
-//     /// Computes homomorphically the ceil of a ciphertext encrypting a fixed point number.
-//     /// Rounds to the next integer towards +∞, wrapping on overflow
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheU8F8;
-//     /// use fixed::types::U8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_floor(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_floor());
-//     /// ```
-//     pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_ceil(&mut self.inner),
-//         }
-//     }
-
-//     /// Homomorphically rounds a ciphertext encrypting a fixed point number to the nearest integer.
-//     /// Ties are rounded towards +∞, wrapping on overflow
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheU8F8;
-//     /// use fixed::types::U8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_round(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_round());
-//     /// ```
-//     pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_round(&mut self.inner),
-//         }
-//     }
-
-//     /// Homomorphically truncates a ciphertext encrypting a fixed point number to the given precision.
-//     /// `prec` has to be between 0 and `Frac`, the number of fractional bits this type has.
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheU8F8;
-//     /// use fixed::types::U8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: U8F8 = U8F8::from_num(12.625);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// // We truncate to prec = 1, meaning that only the most signifigant fractional bit is kept
-//     /// let ct_res = a.smart_trunc(1, &skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, U8F8::from_num(12.5));
-//     /// ```
-//     pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_trunc(&mut self.inner, prec),
-//         }
-//     }
-// }
-
-// impl<Size, Frac> FheFixedI<Size, Frac>
-// where
-//     Size: FixedSize<Frac>,
-//     Frac: FixedFrac,
-// {
-//     /// Computes homomorphically the floor of a ciphertext encrypting a fixed point number.
-//     /// Rounds to the next integer towards −∞, wrapping on overflow
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheI8F8;
-//     /// use fixed::types::I8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_floor(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_floor());
-//     /// ```
-//     pub fn smart_floor(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_floor(&mut self.inner),
-//         }
-//     }
-
-//     /// Computes homomorphically the ceil of a ciphertext encrypting a fixed point number.
-//     /// Rounds to the next integer towards +∞, wrapping on overflow
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheI8F8;
-//     /// use fixed::types::I8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_floor(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_floor());
-//     /// ```
-//     pub fn smart_ceil(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_ceil(&mut self.inner),
-//         }
-//     }
-
-//     /// Homomorphically rounds a ciphertext encrypting a fixed point number to the nearest integer.
-//     /// Ties are rounded away from 0, wrapping on overflow
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheI8F8;
-//     /// use fixed::types::I8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_round(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_round());
-//     /// ```
-//     pub fn smart_round(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_round(&mut self.inner),
-//         }
-//     }
-
-//     /// Homomorphically truncates a ciphertext encrypting a fixed point number to the given precision.
-//     /// `prec` has to be between 0 and `Frac`, the number of fractional bits this type has.
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheI8F8;
-//     /// use fixed::types::I8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: I8F8 = I8F8::from_num(12.625);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// // We truncate to prec = 1, meaning that only the most signifigant fractional bit is kept
-//     /// let ct_res = a.smart_trunc(1, &skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, I8F8::from_num(12.5));
-//     /// ```
-//     pub fn smart_trunc(&mut self, prec: usize, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_trunc(&mut self.inner, prec),
-//         }
-//     }
-// }

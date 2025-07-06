@@ -13,6 +13,32 @@ use rayon::iter::{
 };
 
 impl FixedServerKey {
+    /// Computes homomorphically the square root of a ciphertext encrypting a fixed point number.
+    ///
+    /// # Warning
+    ///
+    /// - Multithreaded
+    ///
+    /// # Example
+    /// ```rust
+    /// use fixed::types::U8F8;
+    /// use fhe_fixed::*;
+    ///
+    /// // Generate the client key and the server key:
+    /// let ckey = FixedClientKey::new();
+    /// let skey = FixedServerKey::new(&ckey);
+    ///
+    /// let clear_a: U8F8 = U8F8::from_num(12.8);
+    ///
+    /// //Encrypt:
+    /// let mut a: FheU8F8 = ckey.encrypt(clear_a);
+    ///
+    /// let ct_res = skey.smart_sqrt(&mut a);
+    ///
+    /// // Decrypt:
+    /// let dec_result: U8F8 = ckey.decrypt(&ct_res);
+    /// assert_eq!(dec_result, clear_a.wrapping_sqrt());
+    /// ```
     pub fn smart_sqrt<T: FixedCiphertext>(&self, lhs: &mut T) -> T {
         let mut result_value = lhs.clone();
         self.smart_sqrt_assign(&mut result_value);
@@ -225,106 +251,3 @@ impl FixedServerKey {
         *c.bits_mut(BitsMutToken) = Bits::from_blocks(wide_result.into_blocks()[blocks_with_frac..].to_vec());
     }
 }
-
-// impl<Size, Frac> FheFixedU<Size, Frac>
-// where
-//     Size: FixedSize<Frac>,
-//     Frac: FixedFrac,
-// {
-//     /// Computes homomorphically the square root of a ciphertext encrypting a fixed point number.
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheU8F8;
-//     /// use fixed::types::U8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: U8F8 = U8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheU8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_sqrt(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: U8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_sqrt());
-//     /// ```
-//     pub fn smart_sqrt(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_sqrt(&mut self.inner),
-//         }
-//     }
-//     pub fn unchecked_sqrt(&self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.unchecked_sqrt(&self.inner),
-//         }
-//     }
-//     pub fn smart_sqrt_assign(&mut self, key: &FixedServerKey) {
-//         key.smart_sqrt_assign(&mut self.inner)
-//     }
-//     pub fn unchecked_sqrt_assign(&mut self, key: &FixedServerKey) {
-//         key.unchecked_sqrt_assign(&mut self.inner)
-//     }
-// }
-
-// impl<Size, Frac> FheFixedI<Size, Frac>
-// where
-//     Size: FixedSize<Frac>,
-//     Frac: FixedFrac,
-// {
-//     /// Computes homomorphically the square root of a ciphertext encrypting a fixed point number.
-//     /// On overflow, the result is wrapped around.
-//     /// This can only happen, if there are no integer bits.
-//     /// If the input is negative, the result will be undefined.
-//     ///
-//     /// # Warning
-//     ///
-//     /// - Multithreaded
-//     ///
-//     /// # Example
-//     /// ```rust
-//     /// use tfhe::{FixedClientKey, FixedServerKey};
-//     /// use tfhe::FheI8F8;
-//     /// use fixed::types::I8F8;
-//     ///
-//     /// // Generate the client key and the server key:
-//     /// let ckey = FixedClientKey::new();
-//     /// let skey = FixedServerKey::new(&ckey);
-//     ///
-//     /// let clear_a: I8F8 = I8F8::from_num(12.8);
-//     ///
-//     /// //Encrypt:
-//     /// let mut a = FheI8F8::encrypt(clear_a, &ckey);
-//     ///
-//     /// let ct_res = a.smart_sqrt(&skey);
-//     ///
-//     /// // Decrypt:
-//     /// let dec_result: I8F8 = ct_res.decrypt(&ckey);
-//     /// assert_eq!(dec_result, clear_a.wrapping_sqrt());
-//     /// ```
-//     pub fn smart_sqrt(&mut self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.smart_sqrt(&mut self.inner),
-//         }
-//     }
-//     pub fn unchecked_sqrt(&self, key: &FixedServerKey) -> Self {
-//         Self {
-//             inner: key.unchecked_sqrt(&self.inner),
-//         }
-//     }
-//     pub fn smart_sqrt_assign(&mut self, key: &FixedServerKey) {
-//         key.smart_sqrt_assign(&mut self.inner)
-//     }
-//     pub fn unchecked_sqrt_assign(&mut self, key: &FixedServerKey) {
-//         key.unchecked_sqrt_assign(&mut self.inner)
-//     }
-// }
