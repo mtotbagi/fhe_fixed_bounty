@@ -110,10 +110,10 @@ This method can decrypt into any native numeric type (u32, i32, f32,...) or into
 This function decrypts an `FheFixed(U/I)` into a `Vec<u64>` which will contain the bit representation of the input ciphertext. This may be useful if `Size > 128`, when there aren't any native of fixed types which can fully contain the value which was encrypted.
 
 ## Tests
-We have extensively tested every arithmetic operation. They can be run from the `tfhe` folder with
+We have extensively tested every arithmetic operation. They can be run from the `fhe_fixed` folder with
 
 ```bash
-cargo +nightly test --release --features=fixed,noise-asserts -- high_level_api::fixed::
+cargo +nightly test --release -- fixed::
 ```
 
 ## Benchmarks
