@@ -1,5 +1,0 @@
-[build]
-target-dir = "../../target/tfhe-lints"
-
-[target.'cfg(all())']
-linker = "dylint-link"
